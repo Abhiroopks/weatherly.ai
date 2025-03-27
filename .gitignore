@@ -172,3 +172,13 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+
+# API Keys
+*.key
+
+# Data from openrouteservice API
+directions.json
+
+# Vscode stuff
+.vscode
