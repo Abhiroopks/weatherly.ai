@@ -6,7 +6,7 @@ import json
 
 
 class DictObj:
-    def __init__(self, in_dict:dict):
+    def __init__(self, in_dict: dict):
         """
         Initialize the object from a dictionary.
 
@@ -22,10 +22,12 @@ class DictObj:
         assert isinstance(in_dict, dict)
         for key, val in in_dict.items():
             if isinstance(val, (list, tuple)):
-               setattr(self, key, [DictObj(x) if isinstance(x, dict) else x for x in val])
+                setattr(
+                    self, key, [DictObj(x) if isinstance(x, dict) else x for x in val]
+                )
             else:
-               setattr(self, key, DictObj(val) if isinstance(val, dict) else val)
-    
+                setattr(self, key, DictObj(val) if isinstance(val, dict) else val)
+
     def __str__(self):
         """
         Return a JSON formatted string of the object.
@@ -35,9 +37,12 @@ class DictObj:
         """
         return json.dumps(self.__dict__, default=lambda o: o.__dict__, indent=4)
 
+
 class Coordinates:
 
-    def __init__(self, latlon: tuple[float, float] | list[float, float], reverse: bool=False):
+    def __init__(
+        self, latlon: tuple[float, float] | list[float, float], reverse: bool = False
+    ):
         """
         Initialize the Coordinates object with latitude and longitude values.
 
@@ -54,12 +59,10 @@ class Coordinates:
         else:
             self.lat = latlon[0]
             self.lon = latlon[1]
-    
+
     def __str__(self):
         return f"Coordinates(lat={self.lat}, lon={self.lon})"
-    
 
 
 class Directions(DictObj):
     pass
-

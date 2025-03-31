@@ -15,7 +15,9 @@ START = Coordinates((40.25442094053086, -74.68232680066355))
 END = Coordinates((40.3156714866853, -74.62401876996654))
 
 
-def split_directions(directions: Directions, interval: int = 25000, include_end: bool = True) -> list[Coordinates]:
+def split_directions(
+    directions: Directions, interval: int = 25000, include_end: bool = True
+) -> list[Coordinates]:
     """
     Splits a given route into a list of coordinates at a specified interval.
 
@@ -30,19 +32,27 @@ def split_directions(directions: Directions, interval: int = 25000, include_end:
     """
 
     # Initialize with starting point.
-    points: list[Coordinates] = [Coordinates(directions.metadata.query.coordinates[0])]
+    points: list[Coordinates] = [
+        Coordinates(directions.metadata.query.coordinates[0], reverse=True)
+    ]
 
     # Add intermediate points.
     distance = 0
     for idx, step in enumerate(directions.features[0].properties.segments[0].steps):
         if distance > interval:
-            points.append(Coordinates(directions.features[0].geometry.coordinates[idx]))
+            points.append(
+                Coordinates(
+                    directions.features[0].geometry.coordinates[idx], reverse=True
+                )
+            )
             distance = 0
 
         distance += step.distance
 
     if include_end:
-        points.append(Coordinates(directions.metadata.query.coordinates[1]))
+        points.append(
+            Coordinates(directions.metadata.query.coordinates[1], reverse=True)
+        )
 
     return points
 
@@ -75,7 +85,9 @@ def get_directions(start: Coordinates = START, end: Coordinates = END) -> Direct
     client: openrouteservice.Client = openrouteservice.Client(key=get_key())
 
     directions: dict = client.directions(
-        ((start.lon, start.lat), (end.lon, end.lat)), format="geojson", profile="driving-car"
+        ((start.lon, start.lat), (end.lon, end.lat)),
+        format="geojson",
+        profile="driving-car",
     )
     return Directions(directions)
 
