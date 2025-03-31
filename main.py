@@ -1,6 +1,10 @@
 import json
+
 from directions.directions import get_directions, split_directions
-from directions.models import Directions
+from directions.models import Coordinates, Directions
+from weather.models import Weather
+from weather.weather import get_weather
+
 
 def read_directions(fname: str) -> Directions:
     """
@@ -12,13 +16,15 @@ def read_directions(fname: str) -> Directions:
     with open(fname, "r") as f:
         return Directions(json.load(f))
 
-def main():
-    #directions = get_directions()
-    directions = read_directions("directions.json")
-    weather_points = split_directions(directions, interval=2000)
 
-    for point in weather_points:
-        print(f"{point}\n")
+def main():
+    directions = get_directions()
+    # directions: Directions = read_directions("directions.json")
+    geo_points: list[Coordinates] = split_directions(directions, interval=2000)
+
+    weather_data: list[Weather] = get_weather(geo_points)
+    for weather in weather_data:
+        print(weather)
 
 
 if __name__ == "__main__":
