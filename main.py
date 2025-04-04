@@ -1,31 +1,44 @@
-import json
+from fastapi import FastAPI
+from geopy.geocoders import Nominatim
 
 from directions.directions import get_directions, split_directions
-from directions.models import Coordinates, Directions
+from directions.models import Coordinates
 from weather.models import Weather
 from weather.weather import get_weather
 
 
-def read_directions(fname: str) -> Directions:
+app = FastAPI()
+GEOLOCATOR = Nominatim(user_agent="CommuteSense", timeout=10)
+
+
+@app.get("/")
+def read_root() -> dict[str, str]:
     """
-    Reads a JSON file and returns a Directions object.
+    Root endpoint of the API.
 
-    :param fname: The path to the JSON file to read.
-    :return: A Directions object.
+    Returns a JSON object with a single key-value pair: {"Hello": "World"}.
     """
-    with open(fname, "r") as f:
-        return Directions(json.load(f))
+    return {"Hello": "World"}
 
 
-def main():
-    directions = get_directions()
-    # directions: Directions = read_directions("directions.json")
-    geo_points: list[Coordinates] = split_directions(directions, interval=2000)
+@app.get("/weather_report")
+def get_weather_report(start_address: str, end_address: str) -> list[Weather]:
+    """
+    Endpoint to get weather report for a route defined by starting and ending coordinates.
 
-    weather_data: list[Weather] = get_weather(geo_points)
-    for weather in weather_data:
-        print(weather)
+    Args:
+        start_address (str): The starting address of the route.
+        end_address (str): The ending address of the route.
 
-
-if __name__ == "__main__":
-    main()
+    Returns:
+        list[Weather]: A list of Weather objects containing the weather information
+            for each significant point along the route.
+    """
+    start_address = GEOLOCATOR.geocode(start_address)
+    end_address = GEOLOCATOR.geocode(end_address)
+    start_coord = Coordinates((start_address.latitude, start_address.longitude))
+    end_coord = Coordinates((end_address.latitude, end_address.longitude))
+    directions = get_directions(start_coord, end_coord)
+    geo_points = split_directions(directions, interval=2000)
+    weather_data = get_weather(geo_points)
+    return weather_data
