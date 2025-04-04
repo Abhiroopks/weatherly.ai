@@ -1,31 +1,43 @@
-import json
+from fastapi import FastAPI
 
 from directions.directions import get_directions, split_directions
-from directions.models import Coordinates, Directions
+from directions.models import Coordinates
 from weather.models import Weather
 from weather.weather import get_weather
 
+app = FastAPI()
 
-def read_directions(fname: str) -> Directions:
+
+@app.get("/")
+def read_root() -> dict[str, str]:
     """
-    Reads a JSON file and returns a Directions object.
+    Root endpoint of the API.
 
-    :param fname: The path to the JSON file to read.
-    :return: A Directions object.
+    Returns a JSON object with a single key-value pair: {"Hello": "World"}.
     """
-    with open(fname, "r") as f:
-        return Directions(json.load(f))
+    return {"Hello": "World"}
 
 
-def main():
-    directions = get_directions()
-    # directions: Directions = read_directions("directions.json")
-    geo_points: list[Coordinates] = split_directions(directions, interval=2000)
+@app.get("/weather_report")
+def get_weather_report(
+    start_lat: float, start_lon: float, end_lat: float, end_lon: float
+) -> list[Weather]:
+    """
+    Endpoint to get weather report for a route defined by starting and ending coordinates.
 
-    weather_data: list[Weather] = get_weather(geo_points)
-    for weather in weather_data:
-        print(weather)
+    Args:
+        start_lat: The starting latitude.
+        start_lon: The starting longitude.
+        end_lat: The ending latitude.
+        end_lon: The ending longitude.
 
-
-if __name__ == "__main__":
-    main()
+    Returns:
+        list[Weather]: A list of Weather objects containing the weather information
+            for each significant point along the route.
+    """
+    start = Coordinates((start_lat, start_lon))
+    end = Coordinates((end_lat, end_lon))
+    directions = get_directions(start, end)
+    geo_points = split_directions(directions, interval=2000)
+    weather_data = get_weather(geo_points)
+    return weather_data
