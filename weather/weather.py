@@ -3,6 +3,8 @@ from openmeteo_sdk.WeatherApiResponse import WeatherApiResponse
 import requests_cache
 from retry_requests import retry
 
+from fastapi import HTTPException
+
 from directions.models import Coordinates
 from weather.models import Weather
 
@@ -11,7 +13,6 @@ CACHE_SESSION = requests_cache.CachedSession(".cache", expire_after=3600)
 RETRY_SESSION = retry(CACHE_SESSION, retries=5, backoff_factor=0.2)
 OPENMETEO = openmeteo_requests.Client(session=RETRY_SESSION)
 WEATHER_URL = "https://api.open-meteo.com/v1/forecast"
-
 
 def get_weather(locations: list[Coordinates]) -> list[Weather]:
     """
@@ -32,9 +33,13 @@ def get_weather(locations: list[Coordinates]) -> list[Weather]:
         "current": ["temperature_2m", "precipitation", "weather_code"],
     }
 
-    responses: list[WeatherApiResponse] = OPENMETEO.weather_api(
-        WEATHER_URL, params=params
-    )
+    try:
+        responses: list[WeatherApiResponse] = OPENMETEO.weather_api(
+            WEATHER_URL, params=params
+        )
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"Failed to get weather")
+    
     return [Weather(response) for response in responses]
 
 
