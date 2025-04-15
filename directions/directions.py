@@ -92,7 +92,7 @@ def get_directions(start: Coordinates = START, end: Coordinates = END) -> Direct
             profile="driving-car",
         )
     except Exception as e:
-        raise HTTPException(status_code=404, detail=f"Failed to generate directions")
+        raise HTTPException(status_code=500, detail=f"Failed to generate directions")
     
     return Directions(directions)
 

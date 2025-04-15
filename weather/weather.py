@@ -38,7 +38,7 @@ def get_weather(locations: list[Coordinates]) -> list[Weather]:
             WEATHER_URL, params=params
         )
     except Exception as e:
-        raise HTTPException(status_code=404, detail=f"Failed to get weather")
+        raise HTTPException(status_code=500, detail=f"Failed to get weather")
     
     return [Weather(response) for response in responses]
 

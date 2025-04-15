@@ -33,15 +33,13 @@ def get_weather_report(start_address: str, end_address: str) -> list[Weather]:
         list[Weather]: A list of Weather objects containing the weather information
             for each significant point along the route.
     """
-    try:
-        start_geo = GEOLOCATOR.geocode(start_address)
-    except Exception as e:
-        raise HTTPException(status_code=404, detail=f"Invalid address: {start_address}")
+    start_geo = GEOLOCATOR.geocode(start_address)
+    if start_geo is None:
+        raise HTTPException(status_code=400, detail=f"Invalid address: {start_address}")
 
-    try:
-        end_geo = GEOLOCATOR.geocode(end_address)
-    except Exception as e:
-        raise HTTPException(status_code=404, detail=f"Invalid address: {end_address}")
+    end_geo = GEOLOCATOR.geocode(end_address)
+    if end_geo is None:
+        raise HTTPException(status_code=400, detail=f"Invalid address: {end_address}")
 
     start_coord = Coordinates((start_geo.latitude, start_geo.longitude))
     end_coord = Coordinates((end_geo.latitude, end_geo.longitude))
