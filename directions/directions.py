@@ -1,4 +1,5 @@
 import openrouteservice
+from fastapi import HTTPException
 
 from directions.models import Coordinates, Directions
 
@@ -84,11 +85,15 @@ def get_directions(start: Coordinates = START, end: Coordinates = END) -> Direct
 
     client: openrouteservice.Client = openrouteservice.Client(key=get_key())
 
-    directions: dict = client.directions(
-        ((start.lon, start.lat), (end.lon, end.lat)),
-        format="geojson",
-        profile="driving-car",
-    )
+    try:
+        directions: dict = client.directions(
+            ((start.lon, start.lat), (end.lon, end.lat)),
+            format="geojson",
+            profile="driving-car",
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate directions")
+    
     return Directions(directions)
 
 

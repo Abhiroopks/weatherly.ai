@@ -1,11 +1,10 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from geopy.geocoders import Nominatim
 
 from directions.directions import get_directions, split_directions
 from directions.models import Coordinates
 from weather.models import Weather
 from weather.weather import get_weather
-
 
 app = FastAPI()
 GEOLOCATOR = Nominatim(user_agent="CommuteSense", timeout=10)
@@ -34,11 +33,20 @@ def get_weather_report(start_address: str, end_address: str) -> list[Weather]:
         list[Weather]: A list of Weather objects containing the weather information
             for each significant point along the route.
     """
-    start_address = GEOLOCATOR.geocode(start_address)
-    end_address = GEOLOCATOR.geocode(end_address)
-    start_coord = Coordinates((start_address.latitude, start_address.longitude))
-    end_coord = Coordinates((end_address.latitude, end_address.longitude))
+    start_geo = GEOLOCATOR.geocode(start_address)
+    if start_geo is None:
+        raise HTTPException(status_code=400, detail=f"Invalid address: {start_address}")
+
+    end_geo = GEOLOCATOR.geocode(end_address)
+    if end_geo is None:
+        raise HTTPException(status_code=400, detail=f"Invalid address: {end_address}")
+
+    start_coord = Coordinates((start_geo.latitude, start_geo.longitude))
+    end_coord = Coordinates((end_geo.latitude, end_geo.longitude))
     directions = get_directions(start_coord, end_coord)
+
     geo_points = split_directions(directions, interval=2000)
+
     weather_data = get_weather(geo_points)
+
     return weather_data
