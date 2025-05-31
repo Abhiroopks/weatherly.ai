@@ -39,6 +39,7 @@ class DictObj:
         """
         return json.dumps(self.__dict__, default=lambda o: o.__dict__, indent=4)
 
+
 class Coordinates(BaseModel):
     """
     Coordinates class
@@ -51,12 +52,11 @@ class Coordinates(BaseModel):
     def __init__(self, coordinates: tuple[float, float], reverse: bool = False):
         super().__init__(
             lat=coordinates[1] if reverse else coordinates[0],
-            lon=coordinates[0] if reverse else coordinates[1]
+            lon=coordinates[0] if reverse else coordinates[1],
         )
 
     lat: float
     lon: float
-
 
 
 class Directions(DictObj):

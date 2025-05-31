@@ -2,7 +2,6 @@ from annotated_types import T
 from openmeteo_sdk.WeatherApiResponse import WeatherApiResponse
 from pydantic import BaseModel
 
-
 # Mapping of WMO weather codes to weather descriptions.
 WMO_WEATHER_CODES: dict[int, str] = {
     0: "Clear sky",
@@ -41,24 +40,24 @@ WEATHER_COMFORT_WEIGHTS: dict[str, float] = {
     "apparent_temperature": 0.2,
     "wind": 0.1,
     "visibility": 0.3,
-    "day_night": 0.15
-    
+    "day_night": 0.15,
 }
 
 # Ideal temperature in celsius (this is rather subjective).
 IDEAL_TEMP_RANGE = (20, 25)
+
 
 class Weather(BaseModel):
     """
     A class representing weather data.
     """
 
-    def __init__(self, weather: WeatherApiResponse) -> None:
-        """
-        Initialize the Weather object with data from a WeatherApiResponse.
+    def __init__(self, weather: WeatherApiResponse = None, **kwargs: dict) -> None:
 
-        :param weather: A WeatherApiResponse object containing weather data.
-        """
+        if weather is None:
+            super().__init__(**kwargs)
+            return
+
         current = weather.Current()
 
         super().__init__(
@@ -88,6 +87,7 @@ class WeatherReport(BaseModel):
     mean_temp: float
     max_gust: float
     min_visibility: float
-    is_day: bool    
+    is_day: bool
     comfort_score: int
     description: str
+    weather_points: list[Weather]

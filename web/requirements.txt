@@ -7,6 +7,7 @@ certifi==2025.1.31
 charset-normalizer==3.4.1
 click==8.1.8
 dnspython==2.7.0
+docutils==0.21.2
 email_validator==2.2.0
 fastapi==0.115.12
 fastapi-cli==0.0.7
@@ -37,9 +38,11 @@ pydantic_core==2.33.0
 Pygments==2.19.1
 python-dateutil==2.9.0.post0
 python-dotenv==1.1.0
+python-geohash==0.8.5
 python-multipart==0.0.20
 pytz==2025.2
 PyYAML==6.0.2
+redis==5.2.1
 requests==2.32.3
 requests-cache==1.2.1
 retry-requests==2.0.0

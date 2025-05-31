@@ -17,14 +17,14 @@ END = Coordinates((40.3156714866853, -74.62401876996654))
 
 
 def split_directions(
-    directions: Directions, interval: int = 25000, include_end: bool = True
+    directions: Directions, interval: int = 3000, include_end: bool = True
 ) -> list[Coordinates]:
     """
     Splits a given route into a list of coordinates at a specified interval.
 
     Args:
         directions: The route to split.
-        interval: The interval at which to split the route in meters. Defaults to 25km.
+        interval: The interval at which to split the route in meters. Defaults to 3km.
         include_end: Whether to include the end of the route in the split points.
             Defaults to True.
 
@@ -93,7 +93,7 @@ def get_directions(start: Coordinates = START, end: Coordinates = END) -> Direct
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate directions")
-    
+
     return Directions(directions)
 
 

@@ -3,11 +3,11 @@ from geopy.geocoders import Nominatim
 
 from directions.directions import get_directions, split_directions
 from directions.models import Coordinates
-from weather.models import Weather, WeatherReport
+from weather.models import WeatherReport
 from weather.weather import generate_weather_report, get_weather
 
 app = FastAPI()
-GEOLOCATOR = Nominatim(user_agent="CommuteSense", timeout=10)
+GEOLOCATOR = Nominatim(user_agent="CommuteSense", timeout=10)  # type: ignore
 
 
 @app.get("/")
@@ -40,11 +40,11 @@ def get_weather_report(start_address: str, end_address: str) -> WeatherReport:
     if end_geo is None:
         raise HTTPException(status_code=400, detail=f"Invalid address: {end_address}")
 
-    start_coord = Coordinates((start_geo.latitude, start_geo.longitude))
-    end_coord = Coordinates((end_geo.latitude, end_geo.longitude))
+    start_coord = Coordinates((start_geo.latitude, start_geo.longitude))  # type: ignore
+    end_coord = Coordinates((end_geo.latitude, end_geo.longitude))  # type: ignore
     directions = get_directions(start_coord, end_coord)
 
-    geo_points = split_directions(directions, interval=2000)
+    geo_points = split_directions(directions)
 
     weather_data = get_weather(geo_points)
 
