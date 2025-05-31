@@ -1,19 +1,22 @@
 import openmeteo_requests
-from openmeteo_sdk.WeatherApiResponse import WeatherApiResponse
+# from openmeteo_sdk.WeatherApiResponse import WeatherApiResponse
 import requests_cache
 from retry_requests import retry
 
-from fastapi import HTTPException
-
 from directions.models import Coordinates
-from weather.models import WEATHER_COMFORT_WEIGHTS, Weather, WeatherReport, IDEAL_TEMP_RANGE
+from weather.cache import WeatherDataCache
+from weather.models import (IDEAL_TEMP_RANGE, WEATHER_COMFORT_WEIGHTS,
+                                Weather, WeatherReport)
+
+# from fastapi import HTTPException
+
 
 # Setup the Open-Meteo API client with cache and retry on error.
 CACHE_SESSION = requests_cache.CachedSession(".cache", expire_after=3600)
 RETRY_SESSION = retry(CACHE_SESSION, retries=5, backoff_factor=0.2)
 OPENMETEO = openmeteo_requests.Client(session=RETRY_SESSION)
 WEATHER_URL = "https://api.open-meteo.com/v1/forecast"
-
+WEATHER_CACHE = WeatherDataCache(redis_host="redis")
 
 
 def precipitation_score(max_precip: float) -> float:
@@ -33,16 +36,16 @@ def precipitation_score(max_precip: float) -> float:
     # If no precipitation at all.
     if max_precip == 0:
         return 100
-    
+
     # If precipitation is light (less than 3 mm/hr).
     elif max_precip * 4 < 3:
         return 50
-    
+
     # If precipitation is moderate or heavy (greater than 3 mm/hr).
     else:
         return 0
-    
-    
+
+
 def temperature_score(mean_temp: float) -> float:
     """
     Calculate a temperature score based on weather data.
@@ -61,19 +64,19 @@ def temperature_score(mean_temp: float) -> float:
     # If the average temperature is within the ideal range.
     if mean_temp > IDEAL_TEMP_RANGE[0] and mean_temp < IDEAL_TEMP_RANGE[1]:
         return 100
-    
+
     # Below ideal range but above 5C.
     elif mean_temp < IDEAL_TEMP_RANGE[0] and mean_temp > 5:
         return 50
-    
+
     # Above ideal range but below 28C.
     elif mean_temp > IDEAL_TEMP_RANGE[1] and mean_temp < 28:
         return 50
-    
+
     # Too hot or too cold.
     else:
         return 0
-    
+
 
 def wind_score(max_gust: float) -> float:
     """
@@ -123,7 +126,8 @@ def visibility_score(min_visibility: float) -> float:
         return 20
     else:
         return 0
-    
+
+
 def day_night_score(is_day: bool) -> float:
     """
     Calculate a score based on day or night condition.
@@ -145,14 +149,20 @@ def day_night_score(is_day: bool) -> float:
     else:
         return 0
 
-    
-def calculate_comfort_score(max_precip: float, mean_temp: float, max_gust: float, min_visibility: float, is_day: bool) -> int:
+
+def calculate_comfort_score(
+    max_precip: float,
+    mean_temp: float,
+    max_gust: float,
+    min_visibility: float,
+    is_day: bool,
+) -> int:
     """
     Calculate a comfort score based on various weather parameters.
 
-    The comfort score is computed using weighted contributions from precipitation, 
-    temperature, wind, visibility, and day/night conditions. Each parameter is 
-    scored individually, and the overall comfort score is a weighted sum of these 
+    The comfort score is computed using weighted contributions from precipitation,
+    temperature, wind, visibility, and day/night conditions. Each parameter is
+    scored individually, and the overall comfort score is a weighted sum of these
     individual scores.
 
     Args:
@@ -163,7 +173,7 @@ def calculate_comfort_score(max_precip: float, mean_temp: float, max_gust: float
         is_day (bool): Boolean indicating if it is daytime.
 
     Returns:
-        int: A rounded integer representing the overall comfort score, where a 
+        int: A rounded integer representing the overall comfort score, where a
         higher score indicates more comfortable weather conditions.
     """
 
@@ -177,9 +187,63 @@ def calculate_comfort_score(max_precip: float, mean_temp: float, max_gust: float
 
     return round(comfort_score)
 
-# TODO: Generate description
-def generate_weather_description(weather_data: list[Weather], comfort_score: int) -> str:
-    return "description"
+
+def generate_weather_description(
+    weather_data: list[Weather], comfort_score: int
+) -> str:
+    """
+    Generate a description for a WeatherReport based on the comfort score and weather data.
+
+    This function takes a list of Weather objects and a comfort score and generates a description
+    string representing the weather summary. The description is based on the comfort score and
+    includes phrases that describe the weather conditions.
+
+    Args:
+        weather_data (list[Weather]): A list of Weather objects containing weather data.
+        comfort_score (int): The comfort score calculated from the weather data.
+
+    Returns:
+        str: A string representing the weather summary and comfort score.
+    """
+
+    if comfort_score >= 80:
+        description = "Perfect weather with "
+    elif comfort_score >= 50:
+        description = "Good weather with "
+    elif comfort_score >= 20:
+        description = "Fair weather with "
+    else:
+        description = "Poor weather with "
+
+    # Add precipitation description
+    if max(weather.precipitation for weather in weather_data) > 0:
+        description += "some precipitation, "
+
+    # Add temperature description
+    if comfort_score >= 50:
+        description += "mild temperatures, "
+    else:
+        description += "uncomfortable temperatures, "
+
+    # Add wind description
+    if max(weather.wind_gusts for weather in weather_data) > 10:
+        description += "strong winds, "
+    else:
+        description += "light winds, "
+
+    # Add visibility description
+    if min(weather.visibility for weather in weather_data) < 5000:
+        description += "low visibility, "
+    else:
+        description += "good visibility, "
+
+    # Add day/night description
+    if any(not weather.is_day for weather in weather_data):
+        description += "and some nighttime driving"
+    else:
+        description += "and all daytime driving"
+
+    return description
 
 
 def generate_weather_report(weather_data: list[Weather]) -> WeatherReport:
@@ -187,8 +251,8 @@ def generate_weather_report(weather_data: list[Weather]) -> WeatherReport:
     Generate a WeatherReport from a list of Weather objects.
 
     This function takes a list of Weather objects and generates a WeatherReport object.
-    The WeatherReport object contains the maximum precipitation, mean temperature, maximum wind gusts, 
-    minimum visibility, and day/night status over the given data points, as well as a calculated comfort 
+    The WeatherReport object contains the maximum precipitation, mean temperature, maximum wind gusts,
+    minimum visibility, and day/night status over the given data points, as well as a calculated comfort
     score and description.
 
     Args:
@@ -200,21 +264,25 @@ def generate_weather_report(weather_data: list[Weather]) -> WeatherReport:
 
     # Find the max precipitation amongst the data points.
     # The value here is mm precip over a 15 mins time span.
-    max_precip: float =  max([weather.precipitation for weather in weather_data])
+    max_precip: float = max([weather.precipitation for weather in weather_data])
 
     # Calculate the average temperature over the data points.
-    mean_temp: float = sum([weather.apparent_temp for weather in weather_data]) / len(weather_data)
+    mean_temp: float = sum([weather.apparent_temp for weather in weather_data]) / len(
+        weather_data
+    )
 
     # Highest wind gust over the route.
     max_gust: float = max([weather.wind_gusts for weather in weather_data])
 
     # Lowest visibility over the route
     min_visibility: float = min([weather.visibility for weather in weather_data])
-    
+
     # If any portion of the route is not day, then the route is night.
     is_day: bool = all([weather.is_day for weather in weather_data])
 
-    comfort_score: int = calculate_comfort_score(max_precip, mean_temp, max_gust, min_visibility, is_day)
+    comfort_score: int = calculate_comfort_score(
+        max_precip, mean_temp, max_gust, min_visibility, is_day
+    )
     description: str = generate_weather_description(weather_data, comfort_score)
     weather_report = WeatherReport(
         max_precip=max_precip,
@@ -223,9 +291,10 @@ def generate_weather_report(weather_data: list[Weather]) -> WeatherReport:
         min_visibility=min_visibility,
         is_day=is_day,
         comfort_score=comfort_score,
-        description=description
+        description=description,
+        weather_points=weather_data
     )
-    
+
     return weather_report
 
 
@@ -239,18 +308,34 @@ def get_weather(locations: list[Coordinates]) -> list[Weather]:
     Returns:
         list[Weather]: A list of Weather objects, each containing current weather data for a location.
     """
-    params = {
-        "latitude": [loc.lat for loc in locations],
-        "longitude": [loc.lon for loc in locations],
-        "current": ["apparent_temperature", "precipitation", "weather_code", "is_day", "wind_gusts_10m", "visibility"],
-    }
 
-    try:
-        responses: list[WeatherApiResponse] = OPENMETEO.weather_api(
-            WEATHER_URL, params=params
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get weather")
-    
-    return [Weather(response) for response in responses]
+    weather_data: list[Weather] = []
 
+    # Go through each location and check if cache contains weather data.
+    # If not, request weather data from OpenMeteo.
+    for loc in locations:
+        if WEATHER_CACHE.has_weather_data(loc):
+            weather = WEATHER_CACHE.get_weather_data(loc)
+            weather_data.append(weather)
+        else:
+            params = {
+                "latitude": loc.lat,
+                "longitude": loc.lon,
+                "current": [
+                    "apparent_temperature",
+                    "precipitation",
+                    "weather_code",
+                    "is_day",
+                    "wind_gusts_10m",
+                    "visibility",
+                ],
+            }
+            weather = OPENMETEO.weather_api(WEATHER_URL, params=params)
+            print(weather)
+            weather_obj = Weather(weather[0])
+            print(weather_obj)
+            weather_data.append(weather_obj)
+            # Add to cache.
+            WEATHER_CACHE.add_weather_data(loc, weather_obj)
+
+    return weather_data
