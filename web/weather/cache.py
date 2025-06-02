@@ -32,17 +32,16 @@ class WeatherDataCache:
         Generate a cache key using geohash encoding from a Coordinates object.
 
         This function encodes the given geographical coordinates into a geohash
-        string with a precision of 5, which is then truncated to 5 characters to
-        represent approximately 5 miles of precision.
+        string with a precision of 5, which corresponds to about 5km x 5km block.
 
         Args:
             loc (Coordinates): The location for which to generate a cache key.
 
         Returns:
-            str: A truncated geohash string used as the cache key.
+            str: A geohash string used as the cache key.
         """
         geohash_key = geohash.encode(loc.lat, loc.lon, precision=5)
-        return geohash_key[:5]  # truncate to 5 miles precision
+        return geohash_key
 
     def add_weather_data(self, loc: Coordinates, weather_data: Weather) -> None:
         """
