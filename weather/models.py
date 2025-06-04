@@ -61,8 +61,7 @@ class Weather(BaseModel):
         current = weather.Current()
 
         super().__init__(
-            lat=weather.Latitude(),
-            lon=weather.Longitude(),
+            geo_key=kwargs["geo_key"],
             apparent_temp=current.Variables(0).Value(),
             precipitation=current.Variables(1).Value(),
             weather_description=WMO_WEATHER_CODES[current.Variables(2).Value()],
@@ -71,8 +70,7 @@ class Weather(BaseModel):
             visibility=current.Variables(5).Value(),
         )
 
-    lat: float
-    lon: float
+    geo_key: str
     apparent_temp: float
     precipitation: float
     weather_description: str

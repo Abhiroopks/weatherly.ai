@@ -1,12 +1,16 @@
 import openmeteo_requests
-# from openmeteo_sdk.WeatherApiResponse import WeatherApiResponse
 import requests_cache
+from openmeteo_sdk.WeatherApiResponse import WeatherApiResponse
 from retry_requests import retry
 
 from directions.models import Coordinates
 from weather.cache import WeatherDataCache
-from weather.models import (IDEAL_TEMP_RANGE, WEATHER_COMFORT_WEIGHTS,
-                                Weather, WeatherReport)
+from weather.models import (
+    IDEAL_TEMP_RANGE,
+    WEATHER_COMFORT_WEIGHTS,
+    Weather,
+    WeatherReport,
+)
 
 # from fastapi import HTTPException
 
@@ -248,18 +252,23 @@ def generate_weather_description(
 
 def generate_weather_report(weather_data: list[Weather]) -> WeatherReport:
     """
-    Generate a WeatherReport from a list of Weather objects.
+    Generate a comprehensive weather report from a list of weather data points.
 
-    This function takes a list of Weather objects and generates a WeatherReport object.
-    The WeatherReport object contains the maximum precipitation, mean temperature, maximum wind gusts,
-    minimum visibility, and day/night status over the given data points, as well as a calculated comfort
-    score and description.
+    This function analyzes a list of Weather objects to produce a WeatherReport
+    that summarizes key weather information over a route. It calculates the
+    maximum precipitation, average temperature, highest wind gust, minimum
+    visibility, and determines whether the route is covered entirely during
+    daytime. It then computes a comfort score based on these parameters and
+    generates a descriptive summary of the weather conditions.
 
     Args:
-        weather_data (list[Weather]): A list of Weather objects containing weather data.
+        weather_data (list[Weather]): A list of Weather objects representing
+        weather conditions at various points along a route.
 
     Returns:
-        WeatherReport: A WeatherReport object containing the weather summary and comfort score.
+        WeatherReport: A WeatherReport object containing aggregated weather
+        data, a computed comfort score, and a descriptive summary of the
+        weather conditions.
     """
 
     # Find the max precipitation amongst the data points.
@@ -292,50 +301,58 @@ def generate_weather_report(weather_data: list[Weather]) -> WeatherReport:
         is_day=is_day,
         comfort_score=comfort_score,
         description=description,
-        weather_points=weather_data
+        weather_points=weather_data,
     )
 
     return weather_report
 
 
-def get_weather(locations: list[Coordinates]) -> list[Weather]:
+def get_weather(locations: dict[str, Coordinates]) -> dict[str, Weather]:
     """
-    Retrieves current weather data for each location in the given list of Coordinates.
+    Retrieve weather data for the given locations.
+
+    This function takes a dictionary of geo_key to Coordinates objects and
+    returns a dictionary of geo_key to Weather objects. It checks the cache
+    first to see if the weather data is already available. If not, it requests
+    the data from the OpenMeteo API and then caches it for later use.
 
     Args:
-        locations (list[Coordinates]): A list of Coordinates objects for which to retrieve weather data.
+        locations (dict[str, Coordinates]): A dictionary of geo_key to Coordinates
+            objects.
 
     Returns:
-        list[Weather]: A list of Weather objects, each containing current weather data for a location.
+        dict[str, Weather]: A dictionary of geo_key to Weather objects.
     """
+    weather_data: dict[str, Weather] = {}
+    uncached_locations: dict[str, Coordinates] = {}
 
-    weather_data: list[Weather] = []
-
-    # Go through each location and check if cache contains weather data.
-    # If not, request weather data from OpenMeteo.
-    for loc in locations:
-        if WEATHER_CACHE.has_weather_data(loc):
-            weather = WEATHER_CACHE.get_weather_data(loc)
-            weather_data.append(weather)
+    for geo_key, loc in locations.items():
+        if WEATHER_CACHE.has_weather_data(geo_key):
+            weather_data[geo_key] = WEATHER_CACHE.get_weather_data(geo_key)
         else:
-            params = {
-                "latitude": loc.lat,
-                "longitude": loc.lon,
-                "current": [
-                    "apparent_temperature",
-                    "precipitation",
-                    "weather_code",
-                    "is_day",
-                    "wind_gusts_10m",
-                    "visibility",
-                ],
-            }
-            weather = OPENMETEO.weather_api(WEATHER_URL, params=params)
-            print(weather)
-            weather_obj = Weather(weather[0])
-            print(weather_obj)
-            weather_data.append(weather_obj)
-            # Add to cache.
-            WEATHER_CACHE.add_weather_data(loc, weather_obj)
+            uncached_locations[geo_key] = loc
+
+    if uncached_locations:
+        params: dict = {
+            "latitude": [loc.lat for loc in uncached_locations.values()],
+            "longitude": [loc.lon for loc in uncached_locations.values()],
+            "current": [
+                "apparent_temperature",
+                "precipitation",
+                "weather_code",
+                "is_day",
+                "wind_gusts_10m",
+                "visibility",
+            ],
+        }
+
+        responses: list[WeatherApiResponse] = OPENMETEO.weather_api(
+            WEATHER_URL, params=params
+        )
+
+        for geo_key, response in zip(uncached_locations.keys(), responses):
+            weather_obj = Weather(response, geo_key=geo_key)
+            weather_data[geo_key] = weather_obj
+            WEATHER_CACHE.add_weather_data(geo_key, weather_obj)
 
     return weather_data
