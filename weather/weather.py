@@ -3,6 +3,7 @@ import requests_cache
 from openmeteo_sdk.WeatherApiResponse import WeatherApiResponse
 from retry_requests import retry
 
+import weather
 from directions.models import Coordinates
 from weather.cache import WeatherDataCache
 from weather.models import (
@@ -211,13 +212,13 @@ def generate_weather_description(
     """
 
     if comfort_score >= 80:
-        description = "Perfect weather with "
+        description = "Perfect conditions with "
     elif comfort_score >= 50:
-        description = "Good weather with "
+        description = "Good conditions with "
     elif comfort_score >= 20:
-        description = "Fair weather with "
+        description = "Fair conditions with "
     else:
-        description = "Poor weather with "
+        description = "Poor conditions with "
 
     # Add precipitation description
     if max(weather.precipitation for weather in weather_data) > 0:
@@ -242,10 +243,14 @@ def generate_weather_description(
         description += "good visibility, "
 
     # Add day/night description
-    if any(not weather.is_day for weather in weather_data):
-        description += "and some nighttime driving"
-    else:
+    has_day: bool = any(weather.is_day for weather in weather_data)
+    has_night: bool = any(not weather.is_day for weather in weather_data)
+    if has_day and has_night:
+        description += "and some day/night time driving"
+    elif has_day and not has_night:
         description += "and all daytime driving"
+    else:
+        description += "and all nighttime driving"
 
     return description
 

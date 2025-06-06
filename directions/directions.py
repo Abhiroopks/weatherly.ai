@@ -6,6 +6,7 @@ from geopy import Point
 from geopy.distance import geodesic
 
 from directions.models import Coordinates, Directions, generate_cache_key
+from tools import get_key
 
 """
 This module provides functionality to interact with the OpenRouteService API
@@ -14,8 +15,6 @@ functions to read an API key, fetch directions from the API, save directions to 
 JSON file, and manage stored directions. The module is designed to facilitate 
 route planning and navigation tasks by leveraging external routing services.
 """
-
-KEYFILE = "openroute.key"
 
 # Used for testing.
 START = Coordinates((40.33940110025764, -74.40873920551722))
@@ -90,18 +89,6 @@ def split_directions(
     return points
 
 
-def get_key():
-    """
-    Reads and returns the API key from the specified key file.
-
-    Returns:
-        str: The API key as a string.
-    """
-
-    with open(KEYFILE, "r") as f:
-        return f.read()
-
-
 def get_directions(start: Coordinates = START, end: Coordinates = END) -> Directions:
     """
     Retrieves directions between two geographical coordinates.
@@ -115,7 +102,9 @@ def get_directions(start: Coordinates = START, end: Coordinates = END) -> Direct
             Distances are in meters and times are in seconds.
     """
 
-    client: openrouteservice.Client = openrouteservice.Client(key=get_key())
+    client: openrouteservice.Client = openrouteservice.Client(
+        key=get_key("openroute.key")
+    )
 
     try:
         directions: dict = client.directions(

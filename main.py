@@ -1,13 +1,17 @@
 from fastapi import FastAPI, HTTPException
-from geopy.geocoders import Nominatim
+from opencage.geocoder import OpenCageGeocode
 
 from directions.directions import get_directions, split_directions
 from directions.models import Coordinates, Directions
+from tools import get_key
 from weather.models import Weather, WeatherReport
 from weather.weather import generate_weather_report, get_weather
 
 app = FastAPI()
-GEOLOCATOR = Nominatim(user_agent="CommuteSense", timeout=10)  # type: ignore
+
+
+OPENCAGE_KEY = get_key("opencage.key")
+GEOLOCATOR = OpenCageGeocode(OPENCAGE_KEY)
 
 
 @app.get("/")
@@ -79,6 +83,8 @@ def get_weather_report_from_addresses(
     if end_geo is None:
         raise HTTPException(status_code=400, detail=f"Invalid address: {end_address}")
 
-    return get_weather_report_from_coordinates(
-        start_geo.latitude, start_geo.longitude, end_geo.latitude, end_geo.longitude
-    )
+    start_lat = start_geo[0]["geometry"]["lat"]
+    start_lon = start_geo[0]["geometry"]["lng"]
+    end_lat = end_geo[0]["geometry"]["lat"]
+    end_lon = end_geo[0]["geometry"]["lng"]
+    return get_weather_report_from_coordinates(start_lat, start_lon, end_lat, end_lon)
