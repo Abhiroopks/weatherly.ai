@@ -1,0 +1,24 @@
+services:
+  redis:
+    image: "redis:7.4.2-alpine"
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  web:
+    build: .
+    ports:
+      - "5678:5678"
+      - "8000:8000"
+    #command: "uvicorn main:app --host 0.0.0.0 --port 8000"
+    command:
+      - /bin/sh
+      - -c
+      - |
+        python /tmp/debugpy --wait-for-client --listen 0.0.0.0:5678 \
+        -m uvicorn main:app --host 0.0.0.0 --port 8000
+    depends_on:
+      - redis
+volumes:
+  redis_data:
