@@ -3,7 +3,6 @@ import requests_cache
 from openmeteo_sdk.WeatherApiResponse import WeatherApiResponse
 from retry_requests import retry
 
-import weather
 from directions.models import Coordinates
 from weather.cache import WeatherDataCache
 from weather.models import (
