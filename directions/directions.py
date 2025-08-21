@@ -32,7 +32,7 @@ def calculate_initial_bearing(start: Coordinates, end: Coordinates) -> float:
 
 
 def split_directions(
-    directions: Directions, interval: int = 5000, include_end: bool = True
+    directions: Directions, interval: int = 48000, include_end: bool = True
 ) -> list[Tuple[str, Coordinates]]:
     """
     Splits a given route into multiple geographical points at specified intervals.
@@ -45,7 +45,7 @@ def split_directions(
 
     Args:
         directions (Directions): The Directions object containing the route's geographical coordinates.
-        interval (int, optional): The distance interval in meters to split the route. Defaults to 5000.
+        interval (int, optional): The distance interval in meters to split the route. Defaults to 48000.
         include_end (bool, optional): Whether to include the end point in the result. Defaults to True.
 
     Returns:
