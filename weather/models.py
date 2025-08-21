@@ -88,4 +88,3 @@ class WeatherReport(BaseModel):
     is_day: bool
     comfort_score: int
     description: str
-    weather_points: list[Weather]

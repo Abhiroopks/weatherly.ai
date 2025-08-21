@@ -1,4 +1,5 @@
 from math import atan2, cos, degrees, radians, sin
+from typing import Tuple
 
 import openrouteservice
 from fastapi import HTTPException
@@ -16,10 +17,6 @@ JSON file, and manage stored directions. The module is designed to facilitate
 route planning and navigation tasks by leveraging external routing services.
 """
 
-# Used for testing.
-START = Coordinates((40.33940110025764, -74.40873920551722))
-END = Coordinates((40.69073786690393, -74.17678507867993))
-
 
 def calculate_initial_bearing(start: Coordinates, end: Coordinates) -> float:
     """
@@ -36,7 +33,7 @@ def calculate_initial_bearing(start: Coordinates, end: Coordinates) -> float:
 
 def split_directions(
     directions: Directions, interval: int = 5000, include_end: bool = True
-) -> dict[str, Coordinates]:
+) -> list[Tuple[str, Coordinates]]:
     """
     Splits a given route into multiple geographical points at specified intervals.
 
@@ -52,15 +49,16 @@ def split_directions(
         include_end (bool, optional): Whether to include the end point in the result. Defaults to True.
 
     Returns:
-        dict[str, Coordinates]: A dictionary mapping cache keys to Coordinates objects
-        representing the points along the route.
+        list[Tuple[str, Coordinates]]: A list of tuples consisting of cache keys and Coordinates objects
+        representing the points along the route. This should be in order from beginning to end of the driving
+        route.
     """
 
-    points: dict[str, Coordinates] = {}
+    points: list[Tuple[str, Coordinates]] = []
     coordinates = directions.features[0].geometry.coordinates
     num_coords = len(coordinates)
     starting_point = Coordinates(coordinates[0], reverse=True)
-    points[generate_cache_key(starting_point)] = starting_point
+    points.append((generate_cache_key(starting_point), starting_point))
 
     for index in range(1, num_coords):
         prev_point = Coordinates(coordinates[index - 1], reverse=True)
@@ -78,18 +76,18 @@ def split_directions(
                     Point(prev_point.lat, prev_point.lon), bearing
                 )
                 new_coord = Coordinates((new_point.latitude, new_point.longitude))
-                points[generate_cache_key(new_coord)] = new_coord
+                points.append((generate_cache_key(new_coord), new_coord))
 
-        points[generate_cache_key(current_point)] = current_point
+        points.append((generate_cache_key(current_point), current_point))
 
     if include_end:
         end_point = Coordinates(coordinates[-1], reverse=True)
-        points[generate_cache_key(end_point)] = end_point
+        points.append((generate_cache_key(end_point), end_point))
 
     return points
 
 
-def get_directions(start: Coordinates = START, end: Coordinates = END) -> Directions:
+def get_directions(start: Coordinates, end: Coordinates) -> Directions:
     """
     Retrieves directions between two geographical coordinates.
 
