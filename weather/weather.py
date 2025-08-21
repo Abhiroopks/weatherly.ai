@@ -2,7 +2,10 @@ import openmeteo_requests
 import requests_cache
 from openmeteo_sdk.WeatherApiResponse import WeatherApiResponse
 from retry_requests import retry
+from openai import OpenAI
 
+from tools import get_key
+from prompts import WEATHER_DESCRIPTION
 from directions.models import Coordinates
 from weather.cache import WeatherDataCache
 from weather.models import (
@@ -12,15 +15,17 @@ from weather.models import (
     WeatherReport,
 )
 
-# from fastapi import HTTPException
-
-
 # Setup the Open-Meteo API client with cache and retry on error.
 CACHE_SESSION = requests_cache.CachedSession(".cache", expire_after=3600)
 RETRY_SESSION = retry(CACHE_SESSION, retries=5, backoff_factor=0.2)
 OPENMETEO = openmeteo_requests.Client(session=RETRY_SESSION)
 WEATHER_URL = "https://api.open-meteo.com/v1/forecast"
 WEATHER_CACHE = WeatherDataCache(redis_host="redis")
+
+# Setup the OpenAI API client.
+OPENAI = OpenAI(
+    api_key=get_key("openrouter.ai.key"), base_url="https://openrouter.ai/api/v1"
+)
 
 
 def precipitation_score(max_precip: float) -> float:
@@ -192,9 +197,7 @@ def calculate_comfort_score(
     return round(comfort_score)
 
 
-def generate_weather_description(
-    weather_data: list[Weather], comfort_score: int
-) -> str:
+def generate_weather_description(weather_data: list[Weather], comfort_score: int) -> str:
     """
     Generate a description for a WeatherReport based on the comfort score and weather data.
 
@@ -202,14 +205,43 @@ def generate_weather_description(
     string representing the weather summary. The description is based on the comfort score and
     includes phrases that describe the weather conditions.
 
+    By default, it will attempt to invoke the OpenAI API to generate a summary. If the API
+    call fails, it will fallback to a default description.
+
     Args:
         weather_data (list[Weather]): A list of Weather objects containing weather data.
-        comfort_score (int): The comfort score calculated from the weather data.
+        comfort_score (int): The calculated comfort score based on the weather data.
 
     Returns:
         str: A string representing the weather summary and comfort score.
     """
 
+    description: str = None
+
+    content: str = WEATHER_DESCRIPTION.format(str(weather_data))
+    response = None
+    try:
+        response = OPENAI.chat.completions.create(
+            model="openai/gpt-oss-20b:free",
+            messages=[
+                {
+                    "role": "user",
+                    "content": content,
+                }
+            ],
+        )
+    except Exception as e:
+        print("Failed to generate weather description from LLM. Defaulting to manual generation.")
+
+    try: 
+        description = response.choices[0].message.content
+    except Exception as e:
+        print("LLM returned response, but failed to find output from LLM. Defaulting to manual generation.")
+    
+    if description:
+        return description
+
+    # Generate the description based on the comfort score
     if comfort_score >= 80:
         description = "Perfect conditions with "
     elif comfort_score >= 50:
@@ -311,7 +343,9 @@ def generate_weather_report(weather_data: list[Weather]) -> WeatherReport:
     return weather_report
 
 
-def get_weather(locations: dict[str, Coordinates]) -> dict[str, Weather]:
+def get_weather(
+    locations: dict[str, Coordinates], use_cache: bool = True
+) -> dict[str, Weather]:
     """
     Retrieve weather data for the given locations.
 
@@ -323,6 +357,7 @@ def get_weather(locations: dict[str, Coordinates]) -> dict[str, Weather]:
     Args:
         locations (dict[str, Coordinates]): A dictionary of geo_key to Coordinates
             objects.
+        use_cache (bool, optional): Whether to use the cache. Defaults to True.
 
     Returns:
         dict[str, Weather]: A dictionary of geo_key to Weather objects.
@@ -331,7 +366,7 @@ def get_weather(locations: dict[str, Coordinates]) -> dict[str, Weather]:
     uncached_locations: dict[str, Coordinates] = {}
 
     for geo_key, loc in locations.items():
-        if WEATHER_CACHE.has_weather_data(geo_key):
+        if use_cache and WEATHER_CACHE.has_weather_data(geo_key):
             weather_data[geo_key] = WEATHER_CACHE.get_weather_data(geo_key)
         else:
             uncached_locations[geo_key] = loc
@@ -357,6 +392,7 @@ def get_weather(locations: dict[str, Coordinates]) -> dict[str, Weather]:
         for geo_key, response in zip(uncached_locations.keys(), responses):
             weather_obj = Weather(response, geo_key=geo_key)
             weather_data[geo_key] = weather_obj
-            WEATHER_CACHE.add_weather_data(geo_key, weather_obj)
+            if use_cache:
+                WEATHER_CACHE.add_weather_data(geo_key, weather_obj)
 
     return weather_data

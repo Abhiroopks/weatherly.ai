@@ -8,12 +8,22 @@ The app is intended to be used by anyone who is planning a commute and wants to 
 
 To use the app, you will need to clone the repository by running the command `git clone https://github.com/commute-sense/commute-sense.git`.
 
-## Add OpenCage and OpenRoute API Keys
+## Add API Keys
 
-You will need to add two API keys to the root of the directory.  The first key is for OpenCage, which is used to geocode the start and end locations.  The second key is for OpenRoute, which is used to get the directions between the start and end locations.  You can get these keys from the OpenCage and OpenRoute websites.  Once you have the keys, add them to the root of the directory in files named opencage.key and openroute.key.
+You will need to add three API keys to the root of the directory:
+1. OpenCage, which is used to geocode the start and end locations.
+    * https://opencagedata.com/
+    * file: opencage.key
+2. OpenRoute, which is used to get the directions between the start and end locations.
+    * https://openrouteservice.org/
+    * file: openroute.key
+3. Openrouter.ai, which is used to generate the weather description using an LLM.
+    * https://openrouter.ai/
+    * file: openrouter.ai.key
 
+## Running
 
-To install this app, you will need to install docker and docker-compose.  Then, just run the command `docker-compose up` from the directory where the docker-compose.yml file is located.  This will build the docker image and start the containers.  You can then access the app by going to `http://localhost:8000` in a web browser.
+To run this app, you will need to install docker and docker-compose.  Then, just run the command `docker-compose up` from the directory where the docker-compose.yml file is located.  This will build the docker image and start the containers.  You can then access the app by going to `http://localhost:8000` in a web browser.
 
 ## Debugging with VSCode
 

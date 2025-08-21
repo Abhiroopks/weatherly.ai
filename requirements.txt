@@ -10,6 +10,7 @@ cattrs==25.1.1
 certifi==2025.4.26
 charset-normalizer==3.4.3
 click==8.2.1
+distro==1.9.0
 dnspython==2.7.0
 docutils==0.21.2
 email_validator==2.2.0
@@ -27,6 +28,7 @@ idna==3.10
 isort==6.0.1
 jh2==5.0.9
 Jinja2==3.1.6
+jiter==0.10.0
 markdown-it-py==3.0.0
 MarkupSafe==3.0.2
 mdurl==0.1.2
@@ -34,6 +36,7 @@ multidict==6.4.4
 mypy_extensions==1.1.0
 niquests==3.15.2
 numpy==2.2.6
+openai==1.100.2
 opencage==3.2.0
 openmeteo_requests==1.5.0
 openmeteo_sdk==1.20.1
