@@ -1,4 +1,3 @@
-from math import atan2, cos, degrees, radians, sin
 from typing import Tuple
 
 import openrouteservice
@@ -16,19 +15,6 @@ functions to read an API key, fetch directions from the API, save directions to 
 JSON file, and manage stored directions. The module is designed to facilitate 
 route planning and navigation tasks by leveraging external routing services.
 """
-
-
-def calculate_initial_bearing(start: Coordinates, end: Coordinates) -> float:
-    """
-    Calculate initial bearing from start to end coordinate.
-    """
-    delta_lon = radians(end.lon - start.lon)
-    lat1, lat2 = map(radians, (start.lat, end.lat))
-
-    x = sin(delta_lon) * cos(lat2)
-    y = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(delta_lon)
-
-    return (degrees(atan2(x, y)) + 360) % 360  # Normalize to [0,360)
 
 
 def split_directions(
@@ -55,6 +41,7 @@ def split_directions(
     """
 
     points: list[Tuple[str, Coordinates]] = []
+    distance: float = 0
     coordinates = directions.features[0].geometry.coordinates
     num_coords = len(coordinates)
     starting_point = Coordinates(coordinates[0], reverse=True)
@@ -64,21 +51,14 @@ def split_directions(
         prev_point = Coordinates(coordinates[index - 1], reverse=True)
         current_point = Coordinates(coordinates[index], reverse=True)
 
-        distance = geodesic(
+        distance += geodesic(
             (prev_point.lat, prev_point.lon), (current_point.lat, current_point.lon)
         ).meters
 
-        if distance > interval:
-            num_interpolated_points = int(distance // interval)
-            bearing = calculate_initial_bearing(prev_point, current_point)
-            for i in range(1, num_interpolated_points):
-                new_point = geodesic(meters=i * interval).destination(
-                    Point(prev_point.lat, prev_point.lon), bearing
-                )
-                new_coord = Coordinates((new_point.latitude, new_point.longitude))
-                points.append((generate_cache_key(new_coord), new_coord))
+        if distance >= interval:
+            points.append((generate_cache_key(current_point), current_point))
+            distance = 0
 
-        points.append((generate_cache_key(current_point), current_point))
 
     if include_end:
         end_point = Coordinates(coordinates[-1], reverse=True)

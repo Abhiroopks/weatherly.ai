@@ -224,7 +224,7 @@ def generate_weather_description(
     Returns:
         str: A human-readable description of the weather conditions along the route.
     """
-    description: str = None
+    description: str = ""
 
     content: str = WEATHER_DESCRIPTION.format(
         start_city, start_state, end_city, end_state, comfort_score, str(weather_data)
@@ -262,13 +262,13 @@ def generate_weather_description(
         f"The route from {start_city}, {start_state} to {end_city}, {end_state} has "
     )
     if comfort_score >= 80:
-        description = "perfect conditions with "
+        description += "perfect conditions with "
     elif comfort_score >= 50:
-        description = "good conditions with "
+        description += "good conditions with "
     elif comfort_score >= 20:
-        description = "bad conditions with "
+        description += "bad conditions with "
     else:
-        description = "very bad conditions with "
+        description += "very bad conditions with "
 
     # Add precipitation description
     if max(weather.precipitation for weather in weather_data) > 0:
