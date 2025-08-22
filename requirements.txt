@@ -8,7 +8,7 @@ backoff==2.2.1
 black==25.1.0
 cattrs==25.1.1
 certifi==2025.4.26
-charset-normalizer==3.4.2
+charset-normalizer==3.4.3
 click==8.2.1
 dnspython==2.7.0
 docutils==0.21.2
