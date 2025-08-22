@@ -55,7 +55,7 @@ pytz==2025.2
 PyYAML==6.0.2
 qh3==1.5.2
 redis==6.2.0
-requests==2.32.3
+requests==2.32.4
 requests-cache==1.2.1
 retry-requests==2.0.0
 rich==14.0.0
