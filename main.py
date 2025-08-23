@@ -1,4 +1,5 @@
 from ast import Tuple
+
 from fastapi import FastAPI, HTTPException
 from opencage.geocoder import OpenCageGeocode
 

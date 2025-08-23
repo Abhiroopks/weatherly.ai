@@ -1,9 +1,11 @@
 import time
+
+from directions.directions import get_directions, split_directions
+from directions.models import Coordinates
+from main import get_geo_from_address
 from weather.models import WeatherReport
 from weather.weather import generate_weather_report, get_weather
-from directions.models import Coordinates
-from directions.directions import get_directions, split_directions
-from main import get_geo_from_address
+
 
 def main() -> None:
     start_address: str = "Freehold Raceway Mall, NJ"
@@ -11,7 +13,7 @@ def main() -> None:
 
     total_time: float = 0
     time_diff: float = 0
-    
+
     start_time = time.time()
     start_geo = get_geo_from_address(start_address)
     end_geo = get_geo_from_address(end_address)
@@ -60,5 +62,7 @@ def main() -> None:
     print(weather_report)
 
     print(f"Total time: {total_time}")
+
+
 if __name__ == "__main__":
     main()

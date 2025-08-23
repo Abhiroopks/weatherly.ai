@@ -1,13 +1,14 @@
 from typing import Tuple
+
 import openmeteo_requests
 import requests_cache
+from openai import OpenAI
 from openmeteo_sdk.WeatherApiResponse import WeatherApiResponse
 from retry_requests import retry
-from openai import OpenAI
 
-from tools import get_key
-from prompts import WEATHER_DESCRIPTION
 from directions.models import Coordinates
+from prompts import WEATHER_DESCRIPTION
+from tools import get_key
 from weather.cache import WeatherDataCache
 from weather.models import (
     IDEAL_TEMP_RANGE,
@@ -23,9 +24,10 @@ OPENMETEO = openmeteo_requests.Client(session=RETRY_SESSION)
 WEATHER_URL = "https://api.open-meteo.com/v1/forecast"
 WEATHER_CACHE = WeatherDataCache(redis_host="redis")
 
+
 # Setup the OpenAI API client.
 OPENAI = OpenAI(
-    api_key=get_key("openrouter.ai.key"), base_url="https://openrouter.ai/api/v1"
+    api_key=get_key(file="openrouter.ai.key"), base_url="https://openrouter.ai/api/v1"
 )
 
 
@@ -232,7 +234,6 @@ def generate_weather_description(
     response = None
     try:
         response = OPENAI.chat.completions.create(
-            timeout=30,
             model="openai/gpt-oss-20b:free",
             messages=[
                 {
@@ -241,16 +242,11 @@ def generate_weather_description(
                 }
             ],
         )
-    except Exception as e:
-        print(
-            "Failed to generate weather description from LLM. Defaulting to manual generation."
-        )
-
-    try:
         description = response.choices[0].message.content
     except Exception as e:
+        print(f"Exception during LLM call: {e}")
         print(
-            "LLM returned response, but failed to find output from LLM. Defaulting to manual generation."
+            "Failed to generate weather description from LLM. Defaulting to manual generation."
         )
 
     if description:

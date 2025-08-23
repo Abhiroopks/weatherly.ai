@@ -2,7 +2,6 @@ from typing import Tuple
 
 import openrouteservice
 from fastapi import HTTPException
-from geopy import Point
 from geopy.distance import geodesic
 
 from directions.models import Coordinates, Directions, generate_cache_key
@@ -58,7 +57,6 @@ def split_directions(
         if distance >= interval:
             points.append((generate_cache_key(current_point), current_point))
             distance = 0
-
 
     if include_end:
         end_point = Coordinates(coordinates[-1], reverse=True)
