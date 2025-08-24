@@ -1,4 +1,3 @@
-from annotated_types import T
 from openmeteo_sdk.WeatherApiResponse import WeatherApiResponse
 from pydantic import BaseModel
 
@@ -53,7 +52,6 @@ class Weather(BaseModel):
     """
 
     def __init__(self, weather: WeatherApiResponse = None, **kwargs: dict) -> None:
-
         if weather is None:
             super().__init__(**kwargs)
             return
@@ -80,7 +78,6 @@ class Weather(BaseModel):
 
 
 class WeatherReport(BaseModel):
-
     max_precip: float
     mean_temp: float
     max_gust: float

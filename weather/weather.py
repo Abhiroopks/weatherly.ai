@@ -308,7 +308,6 @@ def generate_weather_report(
     end_city: str,
     end_state: str,
 ) -> WeatherReport:
-
     # Find the max precipitation amongst the data points.
     # The value here is mm precip over a 15 mins time span.
     """

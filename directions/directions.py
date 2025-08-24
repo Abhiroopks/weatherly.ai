@@ -88,16 +88,7 @@ def get_directions(start: Coordinates, end: Coordinates) -> Directions:
             format="geojson",
             profile="driving-car",
         )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to generate directions")
+    except Exception:
+        raise HTTPException(status_code=500, detail="Failed to generate directions")
 
     return Directions(directions)
-
-
-def main():
-    directions = get_directions(START, END)
-    print(directions)
-
-
-if __name__ == "__main__":
-    main()

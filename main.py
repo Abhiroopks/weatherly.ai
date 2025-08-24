@@ -54,11 +54,11 @@ def _get_weather_report(
         WeatherReport: A WeatherReport object containing the weather details for the route.
     """
     start_geo: list[dict] = get_geo_from_address(start_address)
-    if start_geo == None:
+    if start_geo is None:
         raise HTTPException(status_code=404, detail="Start address not found")
 
     end_geo: list[dict] = get_geo_from_address(end_address)
-    if end_geo == None:
+    if end_geo is None:
         raise HTTPException(status_code=404, detail="End address not found")
 
     start_city: str = start_geo[0]["components"]["_normalized_city"]
