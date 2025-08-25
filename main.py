@@ -1,3 +1,4 @@
+import os
 from ast import Tuple
 
 from fastapi import FastAPI, HTTPException
@@ -5,14 +6,13 @@ from opencage.geocoder import OpenCageGeocode
 
 from directions.directions import get_directions, split_directions
 from directions.models import Coordinates, Directions
-from tools import get_key
 from weather.models import Weather, WeatherReport
 from weather.weather import generate_weather_report, get_weather
 
 app = FastAPI()
 
 
-OPENCAGE_KEY = get_key("opencage.key")
+OPENCAGE_KEY = os.environ.get("OPENCAGE_KEY")
 GEOLOCATOR = OpenCageGeocode(OPENCAGE_KEY)
 
 

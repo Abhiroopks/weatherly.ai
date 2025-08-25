@@ -3,17 +3,21 @@ This LLM-enabled application presents a REST API with a single endpoint to gener
 of the weather conditions along a driving route between two addresses.
 
 ## Add API Keys
-You will need to add three API keys to the root of the directory:
+You will need to add three API keys to a "dev.env" file at the root of the project:
 1. OpenCage, which is used to geocode the start and end locations.
     * https://opencagedata.com/
-    * file: opencage.key
 2. OpenRoute, which is used to get the directions between the start and end locations.
     * https://openrouteservice.org/
-    * file: openroute.key
 3. Openrouter.ai, which is used to generate the weather description using an LLM.
     * https://openrouter.ai/
-    * file: openrouter.ai.key
 
+The dev.env file should have the format:
+
+```
+OPENROUTER_AI_KEY=<key>
+OPENCAGE_KEY=<key>
+OPENROUTE_KEY=<key>
+```
 ## Running
 To run this app, you will need to install docker and docker-compose.  Then, just run the command `docker-compose up` from the directory where the docker-compose.yml file is located.  This will build the docker image and start the containers.  You can then access the app by going to `http://localhost:8000` in a web browser.
 

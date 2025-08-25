@@ -1,3 +1,4 @@
+import os
 from typing import Tuple
 
 import openmeteo_requests
@@ -8,7 +9,6 @@ from retry_requests import retry
 
 from directions.models import Coordinates
 from prompts import WEATHER_DESCRIPTION
-from tools import get_key
 from weather.cache import WeatherDataCache
 from weather.models import (
     IDEAL_TEMP_RANGE,
@@ -27,7 +27,7 @@ WEATHER_CACHE = WeatherDataCache(redis_host="redis")
 
 # Setup the OpenAI API client.
 OPENAI = OpenAI(
-    api_key=get_key(file="openrouter.ai.key"), base_url="https://openrouter.ai/api/v1"
+    api_key=os.getenv("OPENROUTER_AI_KEY"), base_url="https://openrouter.ai/api/v1"
 )
 
 

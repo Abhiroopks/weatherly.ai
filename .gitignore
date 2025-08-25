@@ -183,3 +183,6 @@ directions.json
 
 # Vscode stuff
 .vscode
+
+# env files for docker
+*.env

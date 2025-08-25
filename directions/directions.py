@@ -1,3 +1,4 @@
+import os
 from typing import Tuple
 
 import openrouteservice
@@ -5,7 +6,6 @@ from fastapi import HTTPException
 from geopy.distance import geodesic
 
 from directions.models import Coordinates, Directions, generate_cache_key
-from tools import get_key
 
 """
 This module provides functionality to interact with the OpenRouteService API
@@ -14,6 +14,10 @@ functions to read an API key, fetch directions from the API, save directions to 
 JSON file, and manage stored directions. The module is designed to facilitate 
 route planning and navigation tasks by leveraging external routing services.
 """
+
+CLIENT: openrouteservice.Client = openrouteservice.Client(
+    key=os.getenv("OPENROUTE_KEY")
+)
 
 
 def split_directions(
@@ -78,12 +82,8 @@ def get_directions(start: Coordinates, end: Coordinates) -> Directions:
             Distances are in meters and times are in seconds.
     """
 
-    client: openrouteservice.Client = openrouteservice.Client(
-        key=get_key("openroute.key")
-    )
-
     try:
-        directions: dict = client.directions(
+        directions: dict = CLIENT.directions(
             ((start.lon, start.lat), (end.lon, end.lat)),
             format="geojson",
             profile="driving-car",
