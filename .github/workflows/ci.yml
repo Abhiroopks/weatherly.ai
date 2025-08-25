@@ -26,6 +26,10 @@ jobs:
         run: ruff check .
       
       - name: Test with pytest
+        env:
+          OPENCAGE_KEY: ${{ secrets.OPENCAGE_KEY }}
+          OPENROUTE_KEY: ${{ secrets.OPENROUTE_KEY }}
+          OPENROUTER_AI_KEY: ${{ secrets.OPENROUTER_AI_KEY }}
         run: |
           cd tests
           pytest --durations=0 -vv test.py
