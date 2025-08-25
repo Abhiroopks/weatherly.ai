@@ -178,9 +178,6 @@ cython_debug/
 # API Keys
 *.key
 
-# Data from openrouteservice API
-directions.json
-
 # Vscode stuff
 .vscode
 

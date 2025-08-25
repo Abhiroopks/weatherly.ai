@@ -200,7 +200,7 @@ def calculate_comfort_score(
     return round(comfort_score)
 
 
-def generate_weather_description(
+def generate_llm_description(
     weather_data: list[Weather],
     comfort_score: int,
     start_city: str,
@@ -209,7 +209,7 @@ def generate_weather_description(
     end_state: str,
 ) -> str:
     """
-    Generate a human-readable description of the weather conditions along a route.
+    Generate a human-readable description of the weather conditions along a route using a language model.
 
     The description is generated using an LLM from OpenRouter.ai. If the LLM generation
     fails, it falls back to a manual generation based on parameters.
@@ -226,12 +226,12 @@ def generate_weather_description(
     Returns:
         str: A human-readable description of the weather conditions along the route.
     """
-    description: str = ""
-
     content: str = WEATHER_DESCRIPTION.format(
         start_city, start_state, end_city, end_state, comfort_score, str(weather_data)
     )
-    response = None
+
+    description: str = ""
+
     try:
         response = OPENAI.chat.completions.create(
             model="openai/gpt-oss-20b:free",
@@ -249,11 +249,37 @@ def generate_weather_description(
             "Failed to generate weather description from LLM. Defaulting to manual generation."
         )
 
-    if description:
-        return description
+    return description
 
-    # Generate the description based on the all parameters.
 
+def generate_weather_description_manually(
+    weather_data: list[Weather],
+    comfort_score: int,
+    start_city: str,
+    start_state: str,
+    end_city: str,
+    end_state: str,
+) -> str:
+    """
+    Generate a human-readable description of the weather conditions along a route manually.
+
+    The description is generated based on the comfort score, precipitation, temperature,
+    wind, visibility, and day/night conditions of the route.
+
+    Args:
+        weather_data (list[Weather]): A list of Weather objects representing the
+            weather conditions at points along the route.
+        comfort_score (int): The overall comfort score of the route.
+        start_city (str): The city of the starting location.
+        start_state (str): The state of the starting location.
+        end_city (str): The city of the ending location.
+        end_state (str): The state of the ending location.
+
+    Returns:
+        str: A human-readable description of the weather conditions along the route.
+    """
+    description = ""
+    # Generate the description manually.
     description += (
         f"The route from {start_city}, {start_state} to {end_city}, {end_state} has "
     )
@@ -299,6 +325,51 @@ def generate_weather_description(
         description += "and all nighttime driving"
 
     return description
+
+
+def generate_weather_description(
+    weather_data: list[Weather],
+    comfort_score: int,
+    start_city: str,
+    start_state: str,
+    end_city: str,
+    end_state: str,
+) -> str:
+    """
+    Generate a human-readable description of the weather conditions along a route.
+
+    The description is generated using an LLM from OpenRouter.ai. If the LLM generation
+    fails, it falls back to a manual generation based on parameters.
+
+    Args:
+        weather_data (list[Weather]): A list of Weather objects representing the
+            weather conditions at points along the route.
+        comfort_score (int): The overall comfort score of the route.
+        start_city (str): The city of the starting location.
+        start_state (str): The state of the starting location.
+        end_city (str): The city of the ending location.
+        end_state (str): The state of the ending location.
+
+    Returns:
+        str: A human-readable description of the weather conditions along the route.
+    """
+
+    description: str = ""
+    description = generate_llm_description(
+        weather_data, comfort_score, start_city, start_state, end_city, end_state
+    )
+
+    if description:
+        return description
+
+    return generate_weather_description_manually(
+        weather_data,
+        comfort_score,
+        start_city,
+        start_state,
+        end_city,
+        end_state,
+    )
 
 
 def generate_weather_report(
