@@ -1,12 +1,11 @@
-from math import atan2, cos, degrees, radians, sin
+import os
+from typing import Tuple
 
 import openrouteservice
 from fastapi import HTTPException
-from geopy import Point
 from geopy.distance import geodesic
 
 from directions.models import Coordinates, Directions, generate_cache_key
-from tools import get_key
 
 """
 This module provides functionality to interact with the OpenRouteService API
@@ -16,27 +15,14 @@ JSON file, and manage stored directions. The module is designed to facilitate
 route planning and navigation tasks by leveraging external routing services.
 """
 
-# Used for testing.
-START = Coordinates((40.33940110025764, -74.40873920551722))
-END = Coordinates((40.69073786690393, -74.17678507867993))
-
-
-def calculate_initial_bearing(start: Coordinates, end: Coordinates) -> float:
-    """
-    Calculate initial bearing from start to end coordinate.
-    """
-    delta_lon = radians(end.lon - start.lon)
-    lat1, lat2 = map(radians, (start.lat, end.lat))
-
-    x = sin(delta_lon) * cos(lat2)
-    y = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(delta_lon)
-
-    return (degrees(atan2(x, y)) + 360) % 360  # Normalize to [0,360)
+CLIENT: openrouteservice.Client = openrouteservice.Client(
+    key=os.getenv("OPENROUTE_KEY")
+)
 
 
 def split_directions(
-    directions: Directions, interval: int = 5000, include_end: bool = True
-) -> dict[str, Coordinates]:
+    directions: Directions, interval: int = 48000, include_end: bool = True
+) -> list[Tuple[str, Coordinates]]:
     """
     Splits a given route into multiple geographical points at specified intervals.
 
@@ -48,48 +34,42 @@ def split_directions(
 
     Args:
         directions (Directions): The Directions object containing the route's geographical coordinates.
-        interval (int, optional): The distance interval in meters to split the route. Defaults to 5000.
+        interval (int, optional): The distance interval in meters to split the route. Defaults to 48000.
         include_end (bool, optional): Whether to include the end point in the result. Defaults to True.
 
     Returns:
-        dict[str, Coordinates]: A dictionary mapping cache keys to Coordinates objects
-        representing the points along the route.
+        list[Tuple[str, Coordinates]]: A list of tuples consisting of cache keys and Coordinates objects
+        representing the points along the route. This should be in order from beginning to end of the driving
+        route.
     """
 
-    points: dict[str, Coordinates] = {}
+    points: list[Tuple[str, Coordinates]] = []
+    distance: float = 0
     coordinates = directions.features[0].geometry.coordinates
     num_coords = len(coordinates)
     starting_point = Coordinates(coordinates[0], reverse=True)
-    points[generate_cache_key(starting_point)] = starting_point
+    points.append((generate_cache_key(starting_point), starting_point))
 
     for index in range(1, num_coords):
         prev_point = Coordinates(coordinates[index - 1], reverse=True)
         current_point = Coordinates(coordinates[index], reverse=True)
 
-        distance = geodesic(
+        distance += geodesic(
             (prev_point.lat, prev_point.lon), (current_point.lat, current_point.lon)
         ).meters
 
-        if distance > interval:
-            num_interpolated_points = int(distance // interval)
-            bearing = calculate_initial_bearing(prev_point, current_point)
-            for i in range(1, num_interpolated_points):
-                new_point = geodesic(meters=i * interval).destination(
-                    Point(prev_point.lat, prev_point.lon), bearing
-                )
-                new_coord = Coordinates((new_point.latitude, new_point.longitude))
-                points[generate_cache_key(new_coord)] = new_coord
-
-        points[generate_cache_key(current_point)] = current_point
+        if distance >= interval:
+            points.append((generate_cache_key(current_point), current_point))
+            distance = 0
 
     if include_end:
         end_point = Coordinates(coordinates[-1], reverse=True)
-        points[generate_cache_key(end_point)] = end_point
+        points.append((generate_cache_key(end_point), end_point))
 
     return points
 
 
-def get_directions(start: Coordinates = START, end: Coordinates = END) -> Directions:
+def get_directions(start: Coordinates, end: Coordinates) -> Directions:
     """
     Retrieves directions between two geographical coordinates.
 
@@ -102,26 +82,13 @@ def get_directions(start: Coordinates = START, end: Coordinates = END) -> Direct
             Distances are in meters and times are in seconds.
     """
 
-    client: openrouteservice.Client = openrouteservice.Client(
-        key=get_key("openroute.key")
-    )
-
     try:
-        directions: dict = client.directions(
+        directions: dict = CLIENT.directions(
             ((start.lon, start.lat), (end.lon, end.lat)),
             format="geojson",
             profile="driving-car",
         )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to generate directions")
+    except Exception:
+        raise HTTPException(status_code=500, detail="Failed to generate directions")
 
     return Directions(directions)
-
-
-def main():
-    directions = get_directions(START, END)
-    print(directions)
-
-
-if __name__ == "__main__":
-    main()

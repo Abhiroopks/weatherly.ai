@@ -1,0 +1,48 @@
+name: Lint and Test
+
+on: pull_request
+
+jobs:
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Dependencies For Linting
+        run: |
+          python -m pip install --upgrade pip
+          pip3 install ruff
+
+      - name: Run Lint Checks
+        run: |
+          ruff check .
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Dependencies For App
+        run: |
+          python -m pip install --upgrade pip
+          pip3 install -r requirements.txt
+
+      - name: Run Pytest
+        env:
+          OPENCAGE_KEY: ${{ secrets.OPENCAGE_KEY }}
+          OPENROUTE_KEY: ${{ secrets.OPENROUTE_KEY }}
+          OPENROUTER_AI_KEY: ${{ secrets.OPENROUTER_AI_KEY }}
+        run: |
+          cd tests
+          pytest --durations=0 -vv test.py

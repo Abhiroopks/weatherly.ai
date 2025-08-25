@@ -1,0 +1,121 @@
+{
+    "annotations": {
+        "DMS": {
+            "lat": "40\u00b0 20' 19.23072'' N",
+            "lng": "74\u00b0 39' 30.11580'' W"
+        },
+        "FIPS": {
+            "county": "34021",
+            "state": "34"
+        },
+        "MGRS": "18TWK2901765403",
+        "Maidenhead": "FN20qi01xg",
+        "Mercator": {
+            "x": -8310931.23,
+            "y": 4887616.096
+        },
+        "OSM": {
+            "edit_url": "https://www.openstreetmap.org/edit?relation=6365145#map=16/40.33868/-74.65837",
+            "note_url": "https://www.openstreetmap.org/note/new#map=16/40.33868/-74.65837&layers=N",
+            "url": "https://www.openstreetmap.org/?mlat=40.33868&mlon=-74.65837#map=16/40.33868/-74.65837"
+        },
+        "UN_M49": {
+            "regions": {
+                "AMERICAS": "019",
+                "NORTHERN_AMERICA": "021",
+                "US": "840",
+                "WORLD": "001"
+            },
+            "statistical_groupings": [
+                "MEDC"
+            ]
+        },
+        "callingcode": 1,
+        "currency": {
+            "alternate_symbols": [
+                "US$"
+            ],
+            "decimal_mark": ".",
+            "disambiguate_symbol": "US$",
+            "html_entity": "$",
+            "iso_code": "USD",
+            "iso_numeric": "840",
+            "name": "United States Dollar",
+            "smallest_denomination": 1,
+            "subunit": "Cent",
+            "subunit_to_unit": 100,
+            "symbol": "$",
+            "symbol_first": 1,
+            "thousands_separator": ","
+        },
+        "flag": "\ud83c\uddfa\ud83c\uddf8",
+        "geohash": "dr4vmp7mvfpf4jzmqycu",
+        "qibla": 58.06,
+        "roadinfo": {
+            "drive_on": "right",
+            "road": "Alexander Park Drive",
+            "speed_in": "mph"
+        },
+        "sun": {
+            "rise": {
+                "apparent": 1756117260,
+                "astronomical": 1756111380,
+                "civil": 1756115580,
+                "nautical": 1756113540
+            },
+            "set": {
+                "apparent": 1756165140,
+                "astronomical": 1756084620,
+                "civil": 1756080480,
+                "nautical": 1756082460
+            }
+        },
+        "timezone": {
+            "name": "America/New_York",
+            "now_in_dst": 1,
+            "offset_sec": -14400,
+            "offset_string": "-0400",
+            "short_name": "EDT"
+        },
+        "what3words": {
+            "words": "asking.budget.seated"
+        },
+        "wikidata": "Q21578"
+    },
+    "bounds": {
+        "northeast": {
+            "lat": 40.3556278,
+            "lng": -74.6324728
+        },
+        "southwest": {
+            "lat": 40.3202913,
+            "lng": -74.6705979
+        }
+    },
+    "components": {
+        "ISO_3166-1_alpha-2": "US",
+        "ISO_3166-1_alpha-3": "USA",
+        "ISO_3166-2": [
+            "US-NJ"
+        ],
+        "_category": "education",
+        "_normalized_city": "Princeton",
+        "_type": "university",
+        "continent": "North America",
+        "country": "United States",
+        "country_code": "us",
+        "county": "Mercer County",
+        "postcode": "08540",
+        "road": "Alexander Park Drive",
+        "state": "New Jersey",
+        "state_code": "NJ",
+        "town": "Princeton",
+        "university": "Princeton University"
+    },
+    "confidence": 7,
+    "formatted": "Princeton University, Alexander Park Drive, Princeton, NJ 08540, United States of America",
+    "geometry": {
+        "lat": 40.3386752,
+        "lng": -74.6583655
+    }
+}

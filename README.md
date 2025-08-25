@@ -1,22 +1,57 @@
 # Commute-Sense
+This LLM-enabled application presents a REST API with a single endpoint to generate a report
+of the weather conditions along a driving route between two addresses.
 
-This app is designed to help users plan the best route to work by considering both transportation time and weather comfort.  It takes a start and end location as input and provides a list of directions to get from the start to the end, along with a weather report and a comfort score for each point on the route.  It also provides a summary of the overall route, including the total distance, time, and comfort score.
+## Add API Keys
+You will need to add three API keys to a "dev.env" file at the root of the project:
+1. OpenCage, which is used to geocode the start and end locations.
+    * https://opencagedata.com/
+2. OpenRoute, which is used to get the directions between the start and end locations.
+    * https://openrouteservice.org/
+3. Openrouter.ai, which is used to generate the weather description using an LLM.
+    * https://openrouter.ai/
 
-The app is intended to be used by anyone who is planning a commute and wants to know what the weather will be like for their trip.  It is particularly useful for people who are planning a trip to an unfamiliar location or who live in an area with variable weather conditions.  It is also useful for people who want to know how the weather will be at different points on their route, so they can plan their clothing and other preparations accordingly.
+The dev.env file should have the format:
 
-## Clone the Repository
+```
+OPENROUTER_AI_KEY=<key>
+OPENCAGE_KEY=<key>
+OPENROUTE_KEY=<key>
+```
 
-To use the app, you will need to clone the repository by running the command `git clone https://github.com/commute-sense/commute-sense.git`.
+## Dependencies
+The only dependencies to run this project is docker and docker-compose. Please see:
+* https://docs.docker.com/compose/install/
+* https://docs.docker.com/engine/install/
 
-## Add OpenCage and OpenRoute API Keys
+## Download Docker Image
+The docker image can be built by the Dockerfile itself, but it's also possible to simply download the image from GitHub Container Repository:
 
-You will need to add two API keys to the root of the directory.  The first key is for OpenCage, which is used to geocode the start and end locations.  The second key is for OpenRoute, which is used to get the directions between the start and end locations.  You can get these keys from the OpenCage and OpenRoute websites.  Once you have the keys, add them to the root of the directory in files named opencage.key and openroute.key.
+```bash
+docker pull ghcr.io/abhiroopks/commute-sense:latest
+```
 
+If you really want to build the image locally, modify the compose files as such:
+```yaml
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    command: "uvicorn main:app --host 0.0.0.0 --port 8000"
+    env_file: "dev.env"
+    depends_on:
+      - redis
+volumes:
+  redis_data:
+```
 
-To install this app, you will need to install docker and docker-compose.  Then, just run the command `docker-compose up` from the directory where the docker-compose.yml file is located.  This will build the docker image and start the containers.  You can then access the app by going to `http://localhost:8000` in a web browser.
+## Running
+Run the command `docker-compose up` from the directory where the docker-compose.yml file is located.  This will build the docker image and start the containers. You can then access the app by going to `http://localhost:8000` in a web browser.
+
+## Swagger UI
+The swagger documentation for the API can be found at http://localhost:8000/docs#/
 
 ## Debugging with VSCode
-
 To debug the application using Visual Studio Code with Docker, follow these steps:
 
 1. **Open the Project in VSCode**: Open your cloned repository in Visual Studio Code.
@@ -60,9 +95,3 @@ To debug the application using Visual Studio Code with Docker, follow these step
    - Open the Run and Debug sidebar in VSCode (Ctrl+Shift+D).
    - Select "Python: Remote Attach" from the dropdown menu.
    - Click on the green play button to start the debugger.
-
-6. **Set Breakpoints and Debug**:
-   - You can now set breakpoints in your Python code. The debugger will pause execution at these breakpoints, allowing you to inspect variables and step through the code.
-
-By following these steps, you can effectively debug your application running inside a Docker container using VSCode.
-

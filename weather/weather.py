@@ -1,9 +1,14 @@
+import os
+from typing import Tuple
+
 import openmeteo_requests
 import requests_cache
+from openai import OpenAI
 from openmeteo_sdk.WeatherApiResponse import WeatherApiResponse
 from retry_requests import retry
 
 from directions.models import Coordinates
+from prompts import WEATHER_DESCRIPTION
 from weather.cache import WeatherDataCache
 from weather.models import (
     IDEAL_TEMP_RANGE,
@@ -12,15 +17,18 @@ from weather.models import (
     WeatherReport,
 )
 
-# from fastapi import HTTPException
-
-
 # Setup the Open-Meteo API client with cache and retry on error.
 CACHE_SESSION = requests_cache.CachedSession(".cache", expire_after=3600)
 RETRY_SESSION = retry(CACHE_SESSION, retries=5, backoff_factor=0.2)
 OPENMETEO = openmeteo_requests.Client(session=RETRY_SESSION)
 WEATHER_URL = "https://api.open-meteo.com/v1/forecast"
 WEATHER_CACHE = WeatherDataCache(redis_host="redis")
+
+
+# Setup the OpenAI API client.
+OPENAI = OpenAI(
+    api_key=os.getenv("OPENROUTER_AI_KEY"), base_url="https://openrouter.ai/api/v1"
+)
 
 
 def precipitation_score(max_precip: float) -> float:
@@ -192,32 +200,97 @@ def calculate_comfort_score(
     return round(comfort_score)
 
 
-def generate_weather_description(
-    weather_data: list[Weather], comfort_score: int
+def generate_llm_description(
+    weather_data: list[Weather],
+    comfort_score: int,
+    start_city: str,
+    start_state: str,
+    end_city: str,
+    end_state: str,
 ) -> str:
     """
-    Generate a description for a WeatherReport based on the comfort score and weather data.
+    Generate a human-readable description of the weather conditions along a route using a language model.
 
-    This function takes a list of Weather objects and a comfort score and generates a description
-    string representing the weather summary. The description is based on the comfort score and
-    includes phrases that describe the weather conditions.
+    The description is generated using an LLM from OpenRouter.ai. If the LLM generation
+    fails, it falls back to a manual generation based on parameters.
 
     Args:
-        weather_data (list[Weather]): A list of Weather objects containing weather data.
-        comfort_score (int): The comfort score calculated from the weather data.
+        weather_data (list[Weather]): A list of Weather objects representing the
+            weather conditions at points along the route.
+        comfort_score (int): The overall comfort score of the route.
+        start_city (str): The city of the starting location.
+        start_state (str): The state of the starting location.
+        end_city (str): The city of the ending location.
+        end_state (str): The state of the ending location.
 
     Returns:
-        str: A string representing the weather summary and comfort score.
+        str: A human-readable description of the weather conditions along the route.
     """
+    content: str = WEATHER_DESCRIPTION.format(
+        start_city, start_state, end_city, end_state, comfort_score, str(weather_data)
+    )
 
+    description: str = ""
+
+    try:
+        response = OPENAI.chat.completions.create(
+            model="openai/gpt-oss-20b:free",
+            messages=[
+                {
+                    "role": "user",
+                    "content": content,
+                }
+            ],
+        )
+        description = response.choices[0].message.content
+    except Exception as e:
+        print(f"Exception during LLM call: {e}")
+        print(
+            "Failed to generate weather description from LLM. Defaulting to manual generation."
+        )
+
+    return description
+
+
+def generate_weather_description_manually(
+    weather_data: list[Weather],
+    comfort_score: int,
+    start_city: str,
+    start_state: str,
+    end_city: str,
+    end_state: str,
+) -> str:
+    """
+    Generate a human-readable description of the weather conditions along a route manually.
+
+    The description is generated based on the comfort score, precipitation, temperature,
+    wind, visibility, and day/night conditions of the route.
+
+    Args:
+        weather_data (list[Weather]): A list of Weather objects representing the
+            weather conditions at points along the route.
+        comfort_score (int): The overall comfort score of the route.
+        start_city (str): The city of the starting location.
+        start_state (str): The state of the starting location.
+        end_city (str): The city of the ending location.
+        end_state (str): The state of the ending location.
+
+    Returns:
+        str: A human-readable description of the weather conditions along the route.
+    """
+    description = ""
+    # Generate the description manually.
+    description += (
+        f"The route from {start_city}, {start_state} to {end_city}, {end_state} has "
+    )
     if comfort_score >= 80:
-        description = "Perfect conditions with "
+        description += "perfect conditions with "
     elif comfort_score >= 50:
-        description = "Good conditions with "
+        description += "good conditions with "
     elif comfort_score >= 20:
-        description = "Fair conditions with "
+        description += "bad conditions with "
     else:
-        description = "Poor conditions with "
+        description += "very bad conditions with "
 
     # Add precipitation description
     if max(weather.precipitation for weather in weather_data) > 0:
@@ -254,29 +327,74 @@ def generate_weather_description(
     return description
 
 
-def generate_weather_report(weather_data: list[Weather]) -> WeatherReport:
+def generate_weather_description(
+    weather_data: list[Weather],
+    comfort_score: int,
+    start_city: str,
+    start_state: str,
+    end_city: str,
+    end_state: str,
+) -> str:
     """
-    Generate a comprehensive weather report from a list of weather data points.
+    Generate a human-readable description of the weather conditions along a route.
 
-    This function analyzes a list of Weather objects to produce a WeatherReport
-    that summarizes key weather information over a route. It calculates the
-    maximum precipitation, average temperature, highest wind gust, minimum
-    visibility, and determines whether the route is covered entirely during
-    daytime. It then computes a comfort score based on these parameters and
-    generates a descriptive summary of the weather conditions.
+    The description is generated using an LLM from OpenRouter.ai. If the LLM generation
+    fails, it falls back to a manual generation based on parameters.
 
     Args:
-        weather_data (list[Weather]): A list of Weather objects representing
-        weather conditions at various points along a route.
+        weather_data (list[Weather]): A list of Weather objects representing the
+            weather conditions at points along the route.
+        comfort_score (int): The overall comfort score of the route.
+        start_city (str): The city of the starting location.
+        start_state (str): The state of the starting location.
+        end_city (str): The city of the ending location.
+        end_state (str): The state of the ending location.
 
     Returns:
-        WeatherReport: A WeatherReport object containing aggregated weather
-        data, a computed comfort score, and a descriptive summary of the
-        weather conditions.
+        str: A human-readable description of the weather conditions along the route.
     """
 
+    description: str = ""
+    description = generate_llm_description(
+        weather_data, comfort_score, start_city, start_state, end_city, end_state
+    )
+
+    if description:
+        return description
+
+    return generate_weather_description_manually(
+        weather_data,
+        comfort_score,
+        start_city,
+        start_state,
+        end_city,
+        end_state,
+    )
+
+
+def generate_weather_report(
+    weather_data: list[Weather],
+    start_city: str,
+    start_state: str,
+    end_city: str,
+    end_state: str,
+) -> WeatherReport:
     # Find the max precipitation amongst the data points.
     # The value here is mm precip over a 15 mins time span.
+    """
+    Generate a weather report for the given start and end addresses.
+
+    Args:
+        weather_data (list[Weather]): A list of Weather objects representing the
+            weather conditions at points along the route.
+        start_city (str): The city of the starting location.
+        start_state (str): The state of the starting location.
+        end_city (str): The city of the ending location.
+        end_state (str): The state of the ending location.
+
+    Returns:
+        WeatherReport: A WeatherReport object containing the weather details for the route.
+    """
     max_precip: float = max([weather.precipitation for weather in weather_data])
 
     # Calculate the average temperature over the data points.
@@ -296,7 +414,9 @@ def generate_weather_report(weather_data: list[Weather]) -> WeatherReport:
     comfort_score: int = calculate_comfort_score(
         max_precip, mean_temp, max_gust, min_visibility, is_day
     )
-    description: str = generate_weather_description(weather_data, comfort_score)
+    description: str = generate_weather_description(
+        weather_data, comfort_score, start_city, start_state, end_city, end_state
+    )
     weather_report = WeatherReport(
         max_precip=max_precip,
         mean_temp=mean_temp,
@@ -305,13 +425,14 @@ def generate_weather_report(weather_data: list[Weather]) -> WeatherReport:
         is_day=is_day,
         comfort_score=comfort_score,
         description=description,
-        weather_points=weather_data,
     )
 
     return weather_report
 
 
-def get_weather(locations: dict[str, Coordinates]) -> dict[str, Weather]:
+def get_weather(
+    locations: list[Tuple[str, Coordinates]], use_cache: bool = True
+) -> list[Weather]:
     """
     Retrieve weather data for the given locations.
 
@@ -321,42 +442,40 @@ def get_weather(locations: dict[str, Coordinates]) -> dict[str, Weather]:
     the data from the OpenMeteo API and then caches it for later use.
 
     Args:
-        locations (dict[str, Coordinates]): A dictionary of geo_key to Coordinates
-            objects.
+        locations (list[Tuple[str, Coordinates]]): A list of tuples consisting
+        of geo_key and Coordinates objects.
+
+        use_cache (bool, optional): Whether to use the cache. Defaults to True.
 
     Returns:
         dict[str, Weather]: A dictionary of geo_key to Weather objects.
     """
-    weather_data: dict[str, Weather] = {}
-    uncached_locations: dict[str, Coordinates] = {}
+    weather_data: list[Weather] = []
 
-    for geo_key, loc in locations.items():
-        if WEATHER_CACHE.has_weather_data(geo_key):
-            weather_data[geo_key] = WEATHER_CACHE.get_weather_data(geo_key)
+    for geo_key, loc in locations:
+        if use_cache and WEATHER_CACHE.has_weather_data(geo_key):
+            weather_data.append(WEATHER_CACHE.get_weather_data(geo_key))
         else:
-            uncached_locations[geo_key] = loc
+            params: dict = {
+                "latitude": loc.lat,
+                "longitude": loc.lon,
+                "current": [
+                    "apparent_temperature",
+                    "precipitation",
+                    "weather_code",
+                    "is_day",
+                    "wind_gusts_10m",
+                    "visibility",
+                ],
+            }
 
-    if uncached_locations:
-        params: dict = {
-            "latitude": [loc.lat for loc in uncached_locations.values()],
-            "longitude": [loc.lon for loc in uncached_locations.values()],
-            "current": [
-                "apparent_temperature",
-                "precipitation",
-                "weather_code",
-                "is_day",
-                "wind_gusts_10m",
-                "visibility",
-            ],
-        }
+            response: list[WeatherApiResponse] = OPENMETEO.weather_api(
+                WEATHER_URL, params=params
+            )
 
-        responses: list[WeatherApiResponse] = OPENMETEO.weather_api(
-            WEATHER_URL, params=params
-        )
-
-        for geo_key, response in zip(uncached_locations.keys(), responses):
-            weather_obj = Weather(response, geo_key=geo_key)
-            weather_data[geo_key] = weather_obj
-            WEATHER_CACHE.add_weather_data(geo_key, weather_obj)
+            weather_obj: Weather = Weather(response[0], geo_key=geo_key)
+            weather_data.append(weather_obj)
+            if use_cache:
+                WEATHER_CACHE.add_weather_data(geo_key, weather_obj)
 
     return weather_data
