@@ -18,8 +18,35 @@ OPENROUTER_AI_KEY=<key>
 OPENCAGE_KEY=<key>
 OPENROUTE_KEY=<key>
 ```
+
+## Dependencies
+The only dependencies to run this project is docker and docker-compose. Please see:
+* https://docs.docker.com/compose/install/
+* https://docs.docker.com/engine/install/
+
+## Download Docker Image
+The docker image can be built by the Dockerfile itself, but it's also possible to simply download the image from GitHub Container Repository:
+
+```bash
+docker pull ghcr.io/abhiroopks/commute-sense:latest
+```
+
+If you really want to build the image locally, modify the compose files as such:
+```yaml
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    command: "uvicorn main:app --host 0.0.0.0 --port 8000"
+    env_file: "dev.env"
+    depends_on:
+      - redis
+volumes:
+  redis_data:
+```
+
 ## Running
-To run this app, you will need to install docker and docker-compose.  Then, just run the command `docker-compose up` from the directory where the docker-compose.yml file is located.  This will build the docker image and start the containers.  You can then access the app by going to `http://localhost:8000` in a web browser.
+Run the command `docker-compose up` from the directory where the docker-compose.yml file is located.  This will build the docker image and start the containers. You can then access the app by going to `http://localhost:8000` in a web browser.
 
 ## Swagger UI
 The swagger documentation for the API can be found at http://localhost:8000/docs#/
