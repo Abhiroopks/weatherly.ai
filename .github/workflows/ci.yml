@@ -40,7 +40,7 @@ jobs:
 
       - name: Run Pytest
         env:
-          OPENCAGE_KEY: ${{ secrets.OPENCAGE_KEY }}
+          LOCATIONIQ_KEY: ${{ secrets.LOCATIONIQ_KEY }}
           OPENROUTE_KEY: ${{ secrets.OPENROUTE_KEY }}
           OPENROUTER_AI_KEY: ${{ secrets.OPENROUTER_AI_KEY }}
         run: |

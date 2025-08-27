@@ -1,121 +1,27 @@
 {
-    "annotations": {
-        "DMS": {
-            "lat": "40\u00b0 15' 11.87820'' N",
-            "lng": "74\u00b0 18' 1.41012'' W"
-        },
-        "FIPS": {
-            "county": "34025",
-            "state": "34"
-        },
-        "MGRS": "18TWK5949756106",
-        "Maidenhead": "FN20ug30wt",
-        "Mercator": {
-            "x": -8271081.772,
-            "y": 4875204.012
-        },
-        "OSM": {
-            "edit_url": "https://www.openstreetmap.org/edit?way=401100813#map=16/40.25330/-74.30039",
-            "note_url": "https://www.openstreetmap.org/note/new#map=16/40.25330/-74.30039&layers=N",
-            "url": "https://www.openstreetmap.org/?mlat=40.25330&mlon=-74.30039#map=16/40.25330/-74.30039"
-        },
-        "UN_M49": {
-            "regions": {
-                "AMERICAS": "019",
-                "NORTHERN_AMERICA": "021",
-                "US": "840",
-                "WORLD": "001"
-            },
-            "statistical_groupings": [
-                "MEDC"
-            ]
-        },
-        "callingcode": 1,
-        "currency": {
-            "alternate_symbols": [
-                "US$"
-            ],
-            "decimal_mark": ".",
-            "disambiguate_symbol": "US$",
-            "html_entity": "$",
-            "iso_code": "USD",
-            "iso_numeric": "840",
-            "name": "United States Dollar",
-            "smallest_denomination": 1,
-            "subunit": "Cent",
-            "subunit_to_unit": 100,
-            "symbol": "$",
-            "symbol_first": 1,
-            "thousands_separator": ","
-        },
-        "flag": "\ud83c\uddfa\ud83c\uddf8",
-        "geohash": "dr5hvrbh7qukm1tb5k74",
-        "qibla": 58.3,
-        "roadinfo": {
-            "drive_on": "right",
-            "road": "Winners Circle",
-            "speed_in": "mph"
-        },
-        "sun": {
-            "rise": {
-                "apparent": 1756117200,
-                "astronomical": 1756111320,
-                "civil": 1756115460,
-                "nautical": 1756113420
-            },
-            "set": {
-                "apparent": 1756165080,
-                "astronomical": 1756084500,
-                "civil": 1756080360,
-                "nautical": 1756082400
-            }
-        },
-        "timezone": {
-            "name": "America/New_York",
-            "now_in_dst": 1,
-            "offset_sec": -14400,
-            "offset_string": "-0400",
-            "short_name": "EDT"
-        },
-        "what3words": {
-            "words": "cups.timely.instant"
-        },
-        "wikidata": "Q2917348"
-    },
-    "bounds": {
-        "northeast": {
-            "lat": 40.2557781,
-            "lng": -74.2984867
-        },
-        "southwest": {
-            "lat": 40.2508745,
-            "lng": -74.3020617
-        }
-    },
-    "components": {
-        "ISO_3166-1_alpha-2": "US",
-        "ISO_3166-1_alpha-3": "USA",
-        "ISO_3166-2": [
-            "US-NJ"
-        ],
-        "_category": "commerce",
-        "_normalized_city": "Freehold Township",
-        "_type": "shop",
-        "continent": "North America",
-        "country": "United States",
-        "country_code": "us",
-        "county": "Monmouth County",
-        "postcode": "07728",
-        "road": "Winners Circle",
-        "shop": "Freehold Raceway Mall",
-        "state": "New Jersey",
-        "state_code": "NJ",
-        "town": "Freehold Township"
-    },
-    "confidence": 9,
-    "formatted": "Freehold Raceway Mall, Winners Circle, Freehold Township, NJ 07728, United States of America",
-    "geometry": {
-        "lat": 40.2532995,
-        "lng": -74.3003917
-    }
+  "place_id": "340761174",
+  "licence": "https://locationiq.com/attribution",
+  "osm_type": "relation",
+  "osm_id": "170393",
+  "boundingbox": [
+    "40.247372",
+    "40.272528",
+    "-74.292013",
+    "-74.26161"
+  ],
+  "lat": "40.2601096",
+  "lon": "-74.2737573",
+  "display_name": "Freehold, Monmouth County, New Jersey, USA",
+  "class": "boundary",
+  "type": "administrative",
+  "importance": 0.5736438226215023,
+  "icon": "https://locationiq.org/static/images/mapicons/poi_boundary_administrative.p.20.png",
+  "address": {
+    "city": "Freehold",
+    "county": "Monmouth County",
+    "state": "New Jersey",
+    "postcode": "07728",
+    "country": "United States of America",
+    "country_code": "us"
+  }
 }

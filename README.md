@@ -4,8 +4,8 @@ of the weather conditions along a driving route between two addresses.
 
 ## Add API Keys
 You will need to add three API keys to a "dev.env" file at the root of the project:
-1. OpenCage, which is used to geocode the start and end locations.
-    * https://opencagedata.com/
+1. LocationIQ, which is used to geocode the start and end locations.
+    * https://locationiq.com/
 2. OpenRoute, which is used to get the directions between the start and end locations.
     * https://openrouteservice.org/
 3. Openrouter.ai, which is used to generate the weather description using an LLM.
@@ -15,7 +15,7 @@ The dev.env file should have the format:
 
 ```
 OPENROUTER_AI_KEY=<key>
-OPENCAGE_KEY=<key>
+LOCATIONIQ_KEY=<key>
 OPENROUTE_KEY=<key>
 ```
 

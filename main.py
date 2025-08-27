@@ -1,32 +1,14 @@
-import os
 from ast import Tuple
 
 from fastapi import FastAPI, HTTPException
-from opencage.geocoder import OpenCageGeocode
 
 from directions.directions import get_directions, split_directions
 from directions.models import Coordinates, Directions
+from geolocate import get_geo_from_address
 from weather.models import Weather, WeatherReport
 from weather.weather import generate_weather_report, get_weather
 
 app = FastAPI()
-
-
-OPENCAGE_KEY = os.environ.get("OPENCAGE_KEY")
-GEOLOCATOR = OpenCageGeocode(OPENCAGE_KEY)
-
-
-def get_geo_from_address(address: str) -> list[dict]:
-    """
-    Geocode a given address using OpenCage Geocoder.
-
-    Args:
-        address: The address to geocode.
-
-    Returns:
-        A list of dictionaries containing the geocoded information.
-    """
-    return GEOLOCATOR.geocode(address)
 
 
 @app.get("/")
@@ -53,25 +35,29 @@ def _get_weather_report(
     Returns:
         WeatherReport: A WeatherReport object containing the weather details for the route.
     """
-    start_geo: list[dict] = get_geo_from_address(start_address)
-    if len(start_geo) == 0:
-        raise HTTPException(status_code=404, detail="Start address not found")
+    try:
+        start_geo: list[dict] = get_geo_from_address(start_address)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to geocode start address: {e}"
+        )
 
-    end_geo: list[dict] = get_geo_from_address(end_address)
-    if len(end_geo) == 0:
-        raise HTTPException(status_code=404, detail="End address not found")
+    try:
+        end_geo: list[dict] = get_geo_from_address(end_address)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to geocode end address: {e}"
+        )
 
-    start_city: str = start_geo[0]["components"]["_normalized_city"]
-    start_state: str = start_geo[0]["components"]["state"]
-    end_city: str = end_geo[0]["components"]["_normalized_city"]
-    end_state: str = end_geo[0]["components"]["state"]
+    start_city: str = start_geo["address"]["city"]
+    start_state: str = start_geo["address"]["state"]
+    end_city: str = end_geo["address"]["city"]
+    end_state: str = end_geo["address"]["state"]
 
     start_coord = Coordinates(
-        (start_geo[0]["geometry"]["lat"], start_geo[0]["geometry"]["lng"])
+        (start_geo["geometry"]["lat"], start_geo["geometry"]["lng"])
     )
-    end_coord = Coordinates(
-        (end_geo[0]["geometry"]["lat"], end_geo[0]["geometry"]["lng"])
-    )
+    end_coord = Coordinates((end_geo["geometry"]["lat"], end_geo["geometry"]["lng"]))
 
     try:
         directions: Directions = get_directions(start_coord, end_coord)

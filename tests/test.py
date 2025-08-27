@@ -3,7 +3,7 @@ from typing import Tuple
 
 from directions.directions import get_directions, split_directions
 from directions.models import Coordinates, Directions
-from main import get_geo_from_address
+from geolocate import get_geo_from_address
 from weather.models import Weather, WeatherReport
 from weather.weather import (
     calculate_comfort_score,
@@ -26,9 +26,8 @@ class TestApp:
         given a valid address.
         """
 
-        geos: list[dict] = get_geo_from_address("Princeton University, Princeton, NJ")
-
-        assert len(geos) > 0
+        geo: dict = get_geo_from_address("Princeton University, Princeton, NJ")
+        assert geo is not None
 
     def test_directions(self):
         """
@@ -41,11 +40,11 @@ class TestApp:
         directions: Directions = get_directions(
             Coordinates(
                 (
-                    start_geo["geometry"]["lat"],
-                    start_geo["geometry"]["lng"],
+                    start_geo["lat"],
+                    start_geo["lon"],
                 )
             ),
-            Coordinates((end_geo["geometry"]["lat"], end_geo["geometry"]["lng"])),
+            Coordinates((end_geo["lat"], end_geo["lon"])),
         )
 
         assert directions is not None
@@ -99,10 +98,10 @@ class TestApp:
         weather_description: str = generate_llm_description(
             weather_data=weather_data,
             comfort_score=comfort_score,
-            start_city=start_geo["components"]["_normalized_city"],
-            start_state=start_geo["components"]["state"],
-            end_city=end_geo["components"]["_normalized_city"],
-            end_state=end_geo["components"]["state"],
+            start_city=start_geo["address"]["city"],
+            start_state=start_geo["address"]["state"],
+            end_city=end_geo["address"]["city"],
+            end_state=end_geo["address"]["state"],
         )
 
         assert weather_description is not None
@@ -141,10 +140,10 @@ class TestApp:
         weather_description: str = generate_weather_description_manually(
             weather_data=weather_data,
             comfort_score=comfort_score,
-            start_city=start_geo["components"]["_normalized_city"],
-            start_state=start_geo["components"]["state"],
-            end_city=end_geo["components"]["_normalized_city"],
-            end_state=end_geo["components"]["state"],
+            start_city=start_geo["address"]["city"],
+            start_state=start_geo["address"]["state"],
+            end_city=end_geo["address"]["city"],
+            end_state=end_geo["address"]["state"],
         )
 
         assert weather_description is not None
@@ -162,10 +161,10 @@ class TestApp:
 
         weather_report: WeatherReport = generate_weather_report(
             weather_data=weather_data,
-            start_city=start_geo["components"]["_normalized_city"],
-            start_state=start_geo["components"]["state"],
-            end_city=end_geo["components"]["_normalized_city"],
-            end_state=end_geo["components"]["state"],
+            start_city=start_geo["address"]["city"],
+            start_state=start_geo["address"]["state"],
+            end_city=end_geo["address"]["city"],
+            end_state=end_geo["address"]["state"],
         )
 
         assert weather_report is not None
