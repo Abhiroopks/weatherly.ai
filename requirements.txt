@@ -36,7 +36,6 @@ mypy_extensions==1.1.0
 niquests==3.14.1
 numpy==2.2.6
 openai==1.101.0
-opencage==3.2.0
 openmeteo_requests==1.5.0
 openmeteo_sdk==1.20.1
 openrouteservice==2.3.3
