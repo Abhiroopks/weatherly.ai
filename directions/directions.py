@@ -66,6 +66,7 @@ def split_directions(
         end_point = Coordinates(coordinates[-1], reverse=True)
         points.append((generate_cache_key(end_point), end_point))
 
+    print(f"Generated {len(points)} points from directions")
     return points
 
 

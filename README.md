@@ -24,29 +24,14 @@ The only dependencies to run this project is docker and docker-compose. Please s
 * https://docs.docker.com/compose/install/
 * https://docs.docker.com/engine/install/
 
-## Download Docker Image
-The docker image can be built by the Dockerfile itself, but it's also possible to simply download the image from GitHub Container Repository:
-
-```bash
-docker pull ghcr.io/abhiroopks/commute-sense:latest
-```
-
-If you really want to build the image locally, modify the compose files as such:
-```yaml
-  web:
-    build: .
-    ports:
-      - "8000:8000"
-    command: "uvicorn main:app --host 0.0.0.0 --port 8000"
-    env_file: "dev.env"
-    depends_on:
-      - redis
-volumes:
-  redis_data:
-```
+## Build Docker Image Locally
+Both the `docker-compose-build.yml` and `docker-compose-debug.yml` build the image locally on your
+machine rather than pulling from GHCR. Use these when invoking `docker-compose up` rather than
+`docker-compose.yml`.
 
 ## Running
-Run the command `docker-compose up` from the directory where the docker-compose.yml file is located.  This will build the docker image and start the containers. You can then access the app by going to `http://localhost:8000` in a web browser.
+Run the command `docker compose -f <compose file> up` using the specific compose file you want.
+Access the app by going to `http://localhost:8000` in a web browser. Using the standard `docker-compose.yml` file will pull the app image from GHCR.
 
 ## Swagger UI
 The swagger documentation for the API can be found at http://localhost:8000/docs#/

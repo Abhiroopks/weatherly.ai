@@ -1,5 +1,5 @@
 import json
-from typing import Tuple
+from typing import Optional, Tuple
 
 from directions.directions import get_directions, split_directions
 from directions.models import Coordinates, Directions
@@ -95,7 +95,7 @@ class TestApp:
             max_precip, mean_temp, max_gust, min_visibility, is_day
         )
 
-        weather_description: str = generate_llm_description(
+        weather_description: Optional[str] = generate_llm_description(
             weather_data=weather_data,
             comfort_score=comfort_score,
             start_city=start_geo["address"]["city"],

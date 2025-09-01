@@ -37,6 +37,12 @@ def _get_weather_report(
     """
     try:
         start_geo: list[dict] = get_geo_from_address(start_address)
+        start_city: str = (
+            start_geo["address"]["city"] if "city" in start_geo["address"] else ""
+        )
+        start_state: str = (
+            start_geo["address"]["state"] if "state" in start_geo["address"] else ""
+        )
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Failed to geocode start address: {e}"
@@ -44,20 +50,19 @@ def _get_weather_report(
 
     try:
         end_geo: list[dict] = get_geo_from_address(end_address)
+        end_city: str = (
+            end_geo["address"]["city"] if "city" in end_geo["address"] else ""
+        )
+        end_state: str = (
+            end_geo["address"]["state"] if "state" in end_geo["address"] else ""
+        )
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Failed to geocode end address: {e}"
         )
 
-    start_city: str = start_geo["address"]["city"]
-    start_state: str = start_geo["address"]["state"]
-    end_city: str = end_geo["address"]["city"]
-    end_state: str = end_geo["address"]["state"]
-
-    start_coord = Coordinates(
-        (start_geo["geometry"]["lat"], start_geo["geometry"]["lng"])
-    )
-    end_coord = Coordinates((end_geo["geometry"]["lat"], end_geo["geometry"]["lng"]))
+    start_coord = Coordinates((start_geo["lat"], start_geo["lon"]))
+    end_coord = Coordinates((end_geo["lat"], end_geo["lon"]))
 
     try:
         directions: Directions = get_directions(start_coord, end_coord)
