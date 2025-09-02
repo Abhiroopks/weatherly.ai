@@ -26,12 +26,12 @@ The only dependencies to run this project is docker and docker-compose. Please s
 
 ## Build Docker Image Locally
 Both the `docker-compose-build.yml` and `docker-compose-debug.yml` build the image locally on your
-machine rather than pulling from GHCR. Use these when invoking `docker-compose up` rather than
+machine rather than pulling from GHCR. Use these when invoking `docker compose up` rather than
 `docker-compose.yml`.
 
 ## Running
 Run the command `docker compose -f <compose file> up` using the specific compose file you want.
-Access the app by going to `http://localhost:8000` in a web browser. Using the standard `docker-compose.yml` file will pull the app image from GHCR.
+Access the app by going to `http://localhost:8000` in a web browser.
 
 ## Swagger UI
 The swagger documentation for the API can be found at http://localhost:8000/docs#/
@@ -73,7 +73,7 @@ To debug the application using Visual Studio Code with Docker, follow these step
 4. **Start the Application in Debug Mode**:
    - Run the application using the following command:
      ```sh
-     docker-compose -f docker-compose-debug.yml up
+     docker compose -f docker-compose-debug.yml up
      ```
 
 5. **Attach the Debugger**:
