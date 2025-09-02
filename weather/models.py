@@ -51,7 +51,7 @@ class Weather(BaseModel):
     A class representing weather data.
     """
 
-    def __init__(self, weather: WeatherApiResponse = None, **kwargs: dict) -> None:
+    def __init__(self, weather: WeatherApiResponse = None, **kwargs: dict) -> None:  # type: ignore
         if weather is None:
             super().__init__(**kwargs)
             return

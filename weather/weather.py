@@ -1,5 +1,5 @@
 import os
-from typing import Tuple
+from typing import Optional, Tuple
 
 import openmeteo_requests
 import requests_cache
@@ -7,8 +7,9 @@ from openai import OpenAI
 from openmeteo_sdk.WeatherApiResponse import WeatherApiResponse
 from retry_requests import retry
 
+from ai.chat import chat
+from ai.prompts import WEATHER_DESCRIPTION
 from directions.models import Coordinates
-from prompts import WEATHER_DESCRIPTION
 from weather.cache import WeatherDataCache
 from weather.models import (
     IDEAL_TEMP_RANGE,
@@ -201,55 +202,18 @@ def calculate_comfort_score(
 
 
 def generate_llm_description(
-    weather_data: list[Weather],
     comfort_score: int,
     start_city: str,
     start_state: str,
     end_city: str,
     end_state: str,
-) -> str:
-    """
-    Generate a human-readable description of the weather conditions along a route using a language model.
-
-    The description is generated using an LLM from OpenRouter.ai. If the LLM generation
-    fails, it falls back to a manual generation based on parameters.
-
-    Args:
-        weather_data (list[Weather]): A list of Weather objects representing the
-            weather conditions at points along the route.
-        comfort_score (int): The overall comfort score of the route.
-        start_city (str): The city of the starting location.
-        start_state (str): The state of the starting location.
-        end_city (str): The city of the ending location.
-        end_state (str): The state of the ending location.
-
-    Returns:
-        str: A human-readable description of the weather conditions along the route.
-    """
+    weather_data: list[Weather],
+) -> Optional[str]:
     content: str = WEATHER_DESCRIPTION.format(
-        start_city, start_state, end_city, end_state, comfort_score, str(weather_data)
+        start_city, start_state, end_city, end_state, comfort_score, weather_data
     )
 
-    description: str = ""
-
-    try:
-        response = OPENAI.chat.completions.create(
-            model="openai/gpt-oss-20b:free",
-            messages=[
-                {
-                    "role": "user",
-                    "content": content,
-                }
-            ],
-        )
-        description = response.choices[0].message.content
-    except Exception as e:
-        print(f"Exception during LLM call: {e}")
-        print(
-            "Failed to generate weather description from LLM. Defaulting to manual generation."
-        )
-
-    return description
+    return chat(prompt=content)
 
 
 def generate_weather_description_manually(
@@ -354,13 +318,19 @@ def generate_weather_description(
         str: A human-readable description of the weather conditions along the route.
     """
 
-    description: str = ""
-    description = generate_llm_description(
-        weather_data, comfort_score, start_city, start_state, end_city, end_state
+    description: Optional[str] = generate_llm_description(
+        comfort_score,
+        start_city,
+        start_state,
+        end_city,
+        end_state,
+        weather_data=weather_data,
     )
 
     if description:
         return description
+
+    print("LLM description generation failed, resorting to manual description.")
 
     return generate_weather_description_manually(
         weather_data,
@@ -473,7 +443,7 @@ def get_weather(
                 WEATHER_URL, params=params
             )
 
-            weather_obj: Weather = Weather(response[0], geo_key=geo_key)
+            weather_obj: Weather = Weather(response[0], geo_key=geo_key)  # type: ignore
             weather_data.append(weather_obj)
             if use_cache:
                 WEATHER_CACHE.add_weather_data(geo_key, weather_obj)

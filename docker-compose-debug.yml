@@ -7,7 +7,7 @@ services:
       - redis_data:/data
 
   web:
-    image: "ghcr.io/abhiroopks/commute-sense:latest"
+    build: .
     ports:
       - "5678:5678"
       - "8000:8000"
