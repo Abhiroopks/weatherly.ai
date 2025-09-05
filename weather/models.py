@@ -1,5 +1,37 @@
-from openmeteo_sdk.WeatherApiResponse import WeatherApiResponse
+import datetime
+from typing import Literal
+
 from pydantic import BaseModel
+
+CURRENT_WEATHER_PARAMS: list[str] = [
+    "apparent_temp",
+    "precipitation",
+    "weather_description",
+    "is_day",
+    "wind_gusts",
+    "visibility",
+]
+
+HOURLY_WEATHER_PARAMS: list[str] = [
+    "temperature",
+    "humidity",
+    "apparent_temperature",
+    "precipitation",
+    "weather_code",
+    "wind_speed",
+]
+
+DAILY_WEATHER_PARAMS: list[str] = [
+    "weather_code",
+    "max_temp",
+    "min_temp",
+    "apparent_temp_max",
+    "apparent_temp_min",
+    "sunrise",
+    "sunset",
+    "precipitation_sum",
+    "wind_speed_max",
+]
 
 # Mapping of WMO weather codes to weather descriptions.
 WMO_WEATHER_CODES: dict[int, str] = {
@@ -43,32 +75,14 @@ WEATHER_COMFORT_WEIGHTS: dict[str, float] = {
 }
 
 # Ideal temperature in celsius (this is rather subjective).
-IDEAL_TEMP_RANGE = (20, 25)
+IDEAL_TEMP_RANGE: tuple[Literal[20], Literal[25]] = (20, 25)
 
 
-class Weather(BaseModel):
+class CurrentWeather(BaseModel):
     """
-    A class representing weather data.
+    A class representing current weather data for a single location.
     """
 
-    def __init__(self, weather: WeatherApiResponse = None, **kwargs: dict) -> None:  # type: ignore
-        if weather is None:
-            super().__init__(**kwargs)
-            return
-
-        current = weather.Current()
-
-        super().__init__(
-            geo_key=kwargs["geo_key"],
-            apparent_temp=current.Variables(0).Value(),
-            precipitation=current.Variables(1).Value(),
-            weather_description=WMO_WEATHER_CODES[current.Variables(2).Value()],
-            is_day=current.Variables(3).Value(),
-            wind_gusts=current.Variables(4).Value(),
-            visibility=current.Variables(5).Value(),
-        )
-
-    geo_key: str
     apparent_temp: float
     precipitation: float
     weather_description: str
@@ -76,8 +90,11 @@ class Weather(BaseModel):
     wind_gusts: float
     visibility: float
 
+    def __init__(self, **kwargs: dict) -> None:
+        super().__init__(**kwargs)
 
-class WeatherReport(BaseModel):
+
+class DrivingReport(BaseModel):
     max_precip: float
     mean_temp: float
     max_gust: float
@@ -85,3 +102,43 @@ class WeatherReport(BaseModel):
     is_day: bool
     comfort_score: int
     description: str
+
+
+class DailyWeather(BaseModel):
+    """
+    Weather data for a number of consecutive days, for a single location.
+    """
+
+    date: str
+    location: str
+    max_temp: float
+    min_temp: float
+    apparent_temp_max: float
+    apparent_temp_min: float
+    sunrise: datetime.time
+    sunset: datetime.time
+    precipitation_sum: float
+    wind_speed_max: float
+
+    class Config:
+        arbitrary_types_allowed = True
+
+    def __init__(self, **kwargs: dict) -> None:
+        super().__init__(**kwargs)
+
+
+class HourlyWeather(BaseModel):
+    """
+    Weather data for a number of consecutive hours, for a single location.
+    """
+
+    date: str
+    location: str
+    temp: float
+    apparent_temp: float
+    humidity: float
+    precipitation_sum: float
+    wind_speed: float
+
+    class Config:
+        arbitrary_types_allowed = True

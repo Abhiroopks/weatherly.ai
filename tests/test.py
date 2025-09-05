@@ -1,10 +1,10 @@
 import json
-from typing import Optional, Tuple
+from typing import Any
 
 from directions.directions import get_directions, split_directions
 from directions.models import Coordinates, Directions
 from geolocate import get_geo_from_address
-from weather.models import Weather, WeatherReport
+from weather.models import DrivingReport, Weather
 from weather.weather import (
     calculate_comfort_score,
     generate_llm_description,
@@ -26,7 +26,9 @@ class TestApp:
         given a valid address.
         """
 
-        geo: dict = get_geo_from_address("Princeton University, Princeton, NJ")
+        geo: dict[str, Any] | None = get_geo_from_address(
+            "Princeton University, Princeton, NJ"
+        )
         assert geo is not None
 
     def test_directions(self):
@@ -95,7 +97,7 @@ class TestApp:
             max_precip, mean_temp, max_gust, min_visibility, is_day
         )
 
-        weather_description: Optional[str] = generate_llm_description(
+        weather_description: str | None = generate_llm_description(
             weather_data=weather_data,
             comfort_score=comfort_score,
             start_city=start_geo["address"]["city"],
@@ -150,7 +152,7 @@ class TestApp:
 
     def test_weather_report(self):
         """
-        Tests that the generate_weather_report function returns a non-None WeatherReport
+        Tests that the generate_weather_report function returns a non-None DrivingReport
         object when given valid weather data and start/end addresses.
         """
         weather_data_json: list[dict] = load_json("weather_data.json")
@@ -159,7 +161,7 @@ class TestApp:
         start_geo: dict = load_json("start_geo.json")
         end_geo: dict = load_json("end_geo.json")
 
-        weather_report: WeatherReport = generate_weather_report(
+        weather_report: DrivingReport = generate_weather_report(
             weather_data=weather_data,
             start_city=start_geo["address"]["city"],
             start_state=start_geo["address"]["state"],

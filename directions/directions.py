@@ -1,5 +1,4 @@
 import os
-from typing import Tuple
 
 import openrouteservice
 from fastapi import HTTPException
@@ -22,7 +21,7 @@ CLIENT: openrouteservice.Client = openrouteservice.Client(
 
 def split_directions(
     directions: Directions, interval: int = 48000, include_end: bool = True
-) -> list[Tuple[str, Coordinates]]:
+) -> list[tuple[str, Coordinates]]:
     """
     Splits a given route into multiple geographical points at specified intervals.
 
@@ -38,14 +37,14 @@ def split_directions(
         include_end (bool, optional): Whether to include the end point in the result. Defaults to True.
 
     Returns:
-        list[Tuple[str, Coordinates]]: A list of tuples consisting of cache keys and Coordinates objects
+        list[tuple[str, Coordinates]]: A list of tuples consisting of cache keys and Coordinates objects
         representing the points along the route. This should be in order from beginning to end of the driving
         route.
     """
 
-    points: list[Tuple[str, Coordinates]] = []
+    points: list[tuple[str, Coordinates]] = []
     distance: float = 0
-    coordinates = directions.features[0].geometry.coordinates
+    coordinates = directions.features[0].geometry.coordinates  # type: ignore
     num_coords = len(coordinates)
     starting_point = Coordinates(coordinates[0], reverse=True)
     points.append((generate_cache_key(starting_point), starting_point))
@@ -84,7 +83,7 @@ def get_directions(start: Coordinates, end: Coordinates) -> Directions:
     """
 
     try:
-        directions: dict = CLIENT.directions(
+        directions: dict = CLIENT.directions(  # type: ignore
             ((start.lon, start.lat), (end.lon, end.lat)),
             format="geojson",
             profile="driving-car",

@@ -2,9 +2,10 @@ import json
 
 import redis
 from fastapi.encoders import jsonable_encoder
+from numpy import full
 from pydantic_core import from_json
 
-from weather.models import Weather
+from weather.models import CurrentWeather
 
 
 class WeatherDataCache:
@@ -25,17 +26,52 @@ class WeatherDataCache:
         self.redis_client = redis.Redis(host=redis_host, port=redis_port)
         self.expiration_time = expiration_time
 
-    def add_weather_data(self, cache_key: str, weather_data: Weather) -> None:
-        json_weather_data = json.dumps(jsonable_encoder(weather_data))
-        self.redis_client.hset(cache_key, "weather_data", json_weather_data)
-        self.redis_client.expire(cache_key, self.expiration_time)
+    def add_current_weather(self, cache_key: str, weather_data: CurrentWeather) -> None:
+        """
+        Adds current weather data to the cache under the given cache key.
 
-    def get_weather_data(self, cache_key: str) -> Weather:
-        weather_data = self.redis_client.hget(cache_key, "weather_data")
-        weather_obj = Weather.model_validate(
+        Args:
+            cache_key (str): The cache key to store the weather data under.
+            weather_data (CurrentWeather): The current weather data to store.
+
+        Returns:
+            None
+        """
+        full_cache_key: str = "current_" + cache_key
+        json_weather_data = json.dumps(jsonable_encoder(weather_data))
+        self.redis_client.hset(full_cache_key, "weather_data", json_weather_data)
+        self.redis_client.expire(full_cache_key, self.expiration_time)
+
+    def get_current_weather(self, cache_key: str) -> CurrentWeather:
+        """
+        Retrieves current weather data from the cache under the given cache key.
+
+        Args:
+            cache_key (str): The cache key to retrieve the weather data from.
+
+        Returns:
+            CurrentWeather: The current weather data for the given cache key.
+
+        Raises:
+            KeyError: If the cache key does not exist in the cache.
+        """
+
+        full_cache_key: str = "current_" + cache_key
+        weather_data = self.redis_client.hget(full_cache_key, "weather_data")
+        weather_obj: CurrentWeather = CurrentWeather.model_validate(
             from_json(weather_data, allow_partial=True)
         )
         return weather_obj
 
-    def has_weather_data(self, cache_key: str) -> bool:
-        return self.redis_client.exists(cache_key)
+    def has_current_weather(self, cache_key: str) -> bool:
+        """
+        Checks if current weather data exists in the cache under the given cache key.
+
+        Args:
+            cache_key (str): The cache key to check for current weather data.
+
+        Returns:
+            bool: True if the current weather data exists in the cache, False otherwise.
+        """
+        full_cache_key: str = "current_" + cache_key
+        return self.redis_client.exists(full_cache_key) == 1

@@ -1,9 +1,11 @@
 import os
-from typing import Optional, Tuple
+from typing import Any
 
 import openmeteo_requests
+import pandas as pd
 import requests_cache
 from openai import OpenAI
+from openmeteo_sdk.VariablesWithTime import VariablesWithTime
 from openmeteo_sdk.WeatherApiResponse import WeatherApiResponse
 from retry_requests import retry
 
@@ -12,16 +14,20 @@ from ai.prompts import WEATHER_DESCRIPTION
 from directions.models import Coordinates
 from weather.cache import WeatherDataCache
 from weather.models import (
+    CURRENT_WEATHER_PARAMS,
+    DAILY_WEATHER_PARAMS,
+    HOURLY_WEATHER_PARAMS,
     IDEAL_TEMP_RANGE,
     WEATHER_COMFORT_WEIGHTS,
-    Weather,
-    WeatherReport,
+    WMO_WEATHER_CODES,
+    CurrentWeather,
+    DrivingReport,
 )
 
 # Setup the Open-Meteo API client with cache and retry on error.
 CACHE_SESSION = requests_cache.CachedSession(".cache", expire_after=3600)
 RETRY_SESSION = retry(CACHE_SESSION, retries=5, backoff_factor=0.2)
-OPENMETEO = openmeteo_requests.Client(session=RETRY_SESSION)
+OPENMETEO = openmeteo_requests.Client(session=RETRY_SESSION)  # type: ignore
 WEATHER_URL = "https://api.open-meteo.com/v1/forecast"
 WEATHER_CACHE = WeatherDataCache(redis_host="redis")
 
@@ -207,8 +213,8 @@ def generate_llm_description(
     start_state: str,
     end_city: str,
     end_state: str,
-    weather_data: list[Weather],
-) -> Optional[str]:
+    weather_data: list[CurrentWeather],
+) -> str | None:
     content: str = WEATHER_DESCRIPTION.format(
         start_city, start_state, end_city, end_state, comfort_score, weather_data
     )
@@ -217,7 +223,7 @@ def generate_llm_description(
 
 
 def generate_weather_description_manually(
-    weather_data: list[Weather],
+    weather_data: list[CurrentWeather],
     comfort_score: int,
     start_city: str,
     start_state: str,
@@ -231,7 +237,7 @@ def generate_weather_description_manually(
     wind, visibility, and day/night conditions of the route.
 
     Args:
-        weather_data (list[Weather]): A list of Weather objects representing the
+        weather_data (list[CurrentWeather]): A list of CurrentWeather objects representing the
             weather conditions at points along the route.
         comfort_score (int): The overall comfort score of the route.
         start_city (str): The city of the starting location.
@@ -292,7 +298,7 @@ def generate_weather_description_manually(
 
 
 def generate_weather_description(
-    weather_data: list[Weather],
+    weather_data: list[CurrentWeather],
     comfort_score: int,
     start_city: str,
     start_state: str,
@@ -306,7 +312,7 @@ def generate_weather_description(
     fails, it falls back to a manual generation based on parameters.
 
     Args:
-        weather_data (list[Weather]): A list of Weather objects representing the
+        weather_data (list[CurrentWeather]): A list of CurrentWeather objects representing the
             weather conditions at points along the route.
         comfort_score (int): The overall comfort score of the route.
         start_city (str): The city of the starting location.
@@ -318,7 +324,7 @@ def generate_weather_description(
         str: A human-readable description of the weather conditions along the route.
     """
 
-    description: Optional[str] = generate_llm_description(
+    description: str | None = generate_llm_description(
         comfort_score,
         start_city,
         start_state,
@@ -343,19 +349,19 @@ def generate_weather_description(
 
 
 def generate_weather_report(
-    weather_data: list[Weather],
+    weather_data: list[CurrentWeather],
     start_city: str,
     start_state: str,
     end_city: str,
     end_state: str,
-) -> WeatherReport:
-    # Find the max precipitation amongst the data points.
+) -> DrivingReport:
+    # Find the max erecipitation amongst the data points.
     # The value here is mm precip over a 15 mins time span.
     """
     Generate a weather report for the given start and end addresses.
 
     Args:
-        weather_data (list[Weather]): A list of Weather objects representing the
+        weather_data (list[CurrentWeather]): A list of CurrentWeather objects representing the
             weather conditions at points along the route.
         start_city (str): The city of the starting location.
         start_state (str): The state of the starting location.
@@ -363,7 +369,7 @@ def generate_weather_report(
         end_state (str): The state of the ending location.
 
     Returns:
-        WeatherReport: A WeatherReport object containing the weather details for the route.
+        DrivingReport: A DrivingReport object containing the weather details for the route.
     """
     max_precip: float = max([weather.precipitation for weather in weather_data])
 
@@ -387,7 +393,7 @@ def generate_weather_report(
     description: str = generate_weather_description(
         weather_data, comfort_score, start_city, start_state, end_city, end_state
     )
-    weather_report = WeatherReport(
+    weather_report = DrivingReport(
         max_precip=max_precip,
         mean_temp=mean_temp,
         max_gust=max_gust,
@@ -400,31 +406,26 @@ def generate_weather_report(
     return weather_report
 
 
-def get_weather(
-    locations: list[Tuple[str, Coordinates]], use_cache: bool = True
-) -> list[Weather]:
+def get_current_weather(
+    locations: list[tuple[str, Coordinates]], use_cache: bool = True
+) -> list[CurrentWeather]:
     """
-    Retrieve weather data for the given locations.
-
-    This function takes a dictionary of geo_key to Coordinates objects and
-    returns a dictionary of geo_key to Weather objects. It checks the cache
-    first to see if the weather data is already available. If not, it requests
-    the data from the OpenMeteo API and then caches it for later use.
+    Get current weather data for each location in the given list of locations.
 
     Args:
-        locations (list[Tuple[str, Coordinates]]): A list of tuples consisting
-        of geo_key and Coordinates objects.
-
-        use_cache (bool, optional): Whether to use the cache. Defaults to True.
+        locations (list[tuple[str, Coordinates]]): A list of tuples, where each tuple contains a
+            geo_key and a Coordinates object representing the location.
+        use_cache (bool, optional): Whether to use the cache for current weather data. Defaults to True.
 
     Returns:
-        dict[str, Weather]: A dictionary of geo_key to Weather objects.
+        list[CurrentWeather]: A list of CurrentWeather objects, one for each location.
     """
-    weather_data: list[Weather] = []
+
+    weather_data: list[CurrentWeather] = []
 
     for geo_key, loc in locations:
-        if use_cache and WEATHER_CACHE.has_weather_data(geo_key):
-            weather_data.append(WEATHER_CACHE.get_weather_data(geo_key))
+        if use_cache and WEATHER_CACHE.has_current_weather(geo_key):
+            weather_data.append(WEATHER_CACHE.get_current_weather(geo_key))
         else:
             params: dict = {
                 "latitude": loc.lat,
@@ -443,9 +444,125 @@ def get_weather(
                 WEATHER_URL, params=params
             )
 
-            weather_obj: Weather = Weather(response[0], geo_key=geo_key)  # type: ignore
-            weather_data.append(weather_obj)
+            current_weather: CurrentWeather = CurrentWeather(
+                **parse_current_weather_api_response(response[0])
+            )
+
+            weather_data.append(current_weather)
             if use_cache:
-                WEATHER_CACHE.add_weather_data(geo_key, weather_obj)
+                WEATHER_CACHE.add_current_weather(geo_key, current_weather)
 
     return weather_data
+
+
+def parse_daily_weather_api_response(response: WeatherApiResponse) -> dict[str, Any]:
+    """
+    Parse the response from the OpenMeteo API and extract the daily weather data.
+
+    Args:
+        response (WeatherApiResponse): The response from the OpenMeteo API.
+
+    Returns:
+        dict[str, Any]: A dictionary containing the daily weather data.
+            The keys are the names of the variables and the values are tuples
+            containing the corresponding values.
+    """
+    output: dict[str, Any] = {}
+
+    daily: VariablesWithTime | None = response.Daily()
+    if daily is None:
+        return output
+
+    for i, param in enumerate(DAILY_WEATHER_PARAMS):
+        output[param] = daily.Variables(i).ValuesAsNumpy()
+
+    # output["weather_code"] = daily.Variables(0).ValuesAsNumpy()
+    # output["max_temp"] = daily.Variables(1).ValuesAsNumpy()
+    # output["min_temp"] = daily.Variables(2).ValuesAsNumpy()
+    # output["apparent_temp_max"] = daily.Variables(3).ValuesAsNumpy()
+    # output["apparent_temp_min"] = daily.Variables(4).ValuesAsNumpy()
+    # output["sunrise"] = daily.Variables(5).ValuesInt64AsNumpy()
+    # output["sunset"] = daily.Variables(6).ValuesInt64AsNumpy()
+    # output["precipitation_sum"] = daily.Variables(7).ValuesAsNumpy()
+    # output["wind_speed_max"] = daily.Variables(8).ValuesAsNumpy()
+
+    output["date"] = pd.date_range(
+        start=pd.to_datetime(daily.Time(), unit="s", utc=True),
+        end=pd.to_datetime(daily.TimeEnd(), unit="s", utc=True),
+        freq=pd.Timedelta(seconds=daily.Interval()),
+        inclusive="left",
+    )
+
+    return output
+
+
+def parse_current_weather_api_response(response: WeatherApiResponse) -> dict[str, Any]:
+    """
+    Parse the response from the OpenMeteo API and extract the current weather data.
+
+    Args:
+        response (WeatherApiResponse): The response from the OpenMeteo API.
+
+    Returns:
+        dict[str, Any]: A dictionary containing the current weather data.
+            The keys are the names of the variables and the values are tuples
+            containing the corresponding values.
+    """
+    output: dict[str, Any] = {}
+    current: VariablesWithTime | None = response.Current()
+    if current is None:
+        return output
+
+    for i, param in enumerate(CURRENT_WEATHER_PARAMS):
+        if param == "weather_description":
+            output[param] = WMO_WEATHER_CODES[int(current.Variables(i).Value())]
+            continue
+
+        output[param] = current.Variables(i).Value()
+
+    # output["apparent_temp"] = current.Variables(0).Value()
+    # output["precipitation"] = current.Variables(1).Value()
+    # output["weather_description"] = WMO_WEATHER_CODES[current.Variables(2).Value()]
+    # output["is_day"] = current.Variables(3).Value()
+    # output["wind_gusts"] = current.Variables(4).Value()
+    # output["visibility"] = current.Variables(5).Value()
+
+    return output
+
+
+def parse_hourly_weather_api_response(response: WeatherApiResponse) -> dict[str, Any]:
+    """
+    Parse the response from the OpenMeteo API and extract the hourly weather data.
+
+    Args:
+        response (WeatherApiResponse): The response from the OpenMeteo API.
+
+    Returns:
+        dict[str, Any]: A dictionary containing the hourly weather data.
+            The keys are the names of the variables and the values are tuples
+            containing the corresponding values.
+    """
+    output: dict[str, Any] = {}
+
+    hourly: VariablesWithTime | None = response.Hourly()
+    if hourly is None:
+        return output
+
+    for i, param in enumerate(HOURLY_WEATHER_PARAMS):
+        output[param] = hourly.Variables(i).ValuesAsNumpy()
+
+    # output["temperature"] = hourly.Variables(0).ValuesAsNumpy()
+    # output["humidity"] = hourly.Variables(1).ValuesAsNumpy()
+    # output["apparent_temperature"] = hourly.Variables(2).ValuesAsNumpy()
+    # output["precipitation"] = hourly.Variables(3).ValuesAsNumpy()
+    # output["weather_code"] = hourly.Variables(4).ValuesAsNumpy()
+    # output["wind_speed"] = hourly.Variables(5).ValuesAsNumpy()
+
+    output["date"] = pd.date_range(
+        start=pd.to_datetime(hourly.Time(), unit="s", utc=True),
+        end=pd.to_datetime(hourly.TimeEnd(), unit="s", utc=True),
+        freq=pd.Timedelta(seconds=hourly.Interval()),
+        inclusive="left",
+    )
+
+    return output
