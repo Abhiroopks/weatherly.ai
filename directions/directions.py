@@ -4,7 +4,7 @@ import openrouteservice
 from fastapi import HTTPException
 from geopy.distance import geodesic
 
-from directions.models import Coordinates, Directions, generate_cache_key
+from directions.models import Coordinates, Directions
 
 """
 This module provides functionality to interact with the OpenRouteService API
@@ -21,33 +21,13 @@ CLIENT: openrouteservice.Client = openrouteservice.Client(
 
 def split_directions(
     directions: Directions, interval: int = 48000, include_end: bool = True
-) -> list[tuple[str, Coordinates]]:
-    """
-    Splits a given route into multiple geographical points at specified intervals.
-
-    This function takes a Directions object and splits the route into multiple
-    Coordinates objects based on the specified distance interval. It interpolates
-    additional points between the original coordinates if the distance between them
-    exceeds the specified interval. The function also allows the option to include
-    the end point in the result.
-
-    Args:
-        directions (Directions): The Directions object containing the route's geographical coordinates.
-        interval (int, optional): The distance interval in meters to split the route. Defaults to 48000.
-        include_end (bool, optional): Whether to include the end point in the result. Defaults to True.
-
-    Returns:
-        list[tuple[str, Coordinates]]: A list of tuples consisting of cache keys and Coordinates objects
-        representing the points along the route. This should be in order from beginning to end of the driving
-        route.
-    """
-
-    points: list[tuple[str, Coordinates]] = []
+) -> list[Coordinates]:
+    points: list[Coordinates] = []
     distance: float = 0
     coordinates = directions.features[0].geometry.coordinates  # type: ignore
     num_coords = len(coordinates)
     starting_point = Coordinates(coordinates[0], reverse=True)
-    points.append((generate_cache_key(starting_point), starting_point))
+    points.append(starting_point)
 
     for index in range(1, num_coords):
         prev_point = Coordinates(coordinates[index - 1], reverse=True)
@@ -58,12 +38,12 @@ def split_directions(
         ).meters
 
         if distance >= interval:
-            points.append((generate_cache_key(current_point), current_point))
+            points.append(current_point)
             distance = 0
 
     if include_end:
         end_point = Coordinates(coordinates[-1], reverse=True)
-        points.append((generate_cache_key(end_point), end_point))
+        points.append(end_point)
 
     print(f"Generated {len(points)} points from directions")
     return points

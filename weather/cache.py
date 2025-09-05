@@ -1,11 +1,21 @@
 import json
 
+import geohash
 import redis
 from fastapi.encoders import jsonable_encoder
-from numpy import full
 from pydantic_core import from_json
 
-from weather.models import CurrentWeather
+from directions.models import Coordinates
+from weather.models import CurrentWeather, DailyWeather
+
+# Expires after 6 hours
+DAILY_WEATHER_EXPIRATION_TIME: int = 21600
+
+# Expires after 1 hour
+CURRENT_WEATHER_EXPIRATION_TIME: int = 3600
+
+# Expires after 1 hour
+HOURLY_WEATHER_EXPIRATION_TIME: int = 3600
 
 
 class WeatherDataCache:
@@ -13,7 +23,6 @@ class WeatherDataCache:
         self,
         redis_host: str = "localhost",
         redis_port: int = 6379,
-        expiration_time: int = 3600,
     ):  # 1 hour expiration time
         """
         Initialize the WeatherDataCache object with a Redis client and cache expiration time.
@@ -21,57 +30,51 @@ class WeatherDataCache:
         Args:
             redis_host (str): The hostname of the Redis server. Defaults to 'localhost'.
             redis_port (int): The port number of the Redis server. Defaults to 6379.
-            expiration_time (int): The expiration time for cached data in seconds. Defaults to 3600 seconds (1 hour).
         """
         self.redis_client = redis.Redis(host=redis_host, port=redis_port)
-        self.expiration_time = expiration_time
 
-    def add_current_weather(self, cache_key: str, weather_data: CurrentWeather) -> None:
-        """
-        Adds current weather data to the cache under the given cache key.
-
-        Args:
-            cache_key (str): The cache key to store the weather data under.
-            weather_data (CurrentWeather): The current weather data to store.
-
-        Returns:
-            None
-        """
-        full_cache_key: str = "current_" + cache_key
+    def add_weather(
+        self, prefix: str, loc: Coordinates, weather_data: CurrentWeather | DailyWeather
+    ) -> None:
+        full_cache_key: str = prefix + "_" + generate_cache_key(loc)
         json_weather_data = json.dumps(jsonable_encoder(weather_data))
         self.redis_client.hset(full_cache_key, "weather_data", json_weather_data)
-        self.redis_client.expire(full_cache_key, self.expiration_time)
-
-    def get_current_weather(self, cache_key: str) -> CurrentWeather:
-        """
-        Retrieves current weather data from the cache under the given cache key.
-
-        Args:
-            cache_key (str): The cache key to retrieve the weather data from.
-
-        Returns:
-            CurrentWeather: The current weather data for the given cache key.
-
-        Raises:
-            KeyError: If the cache key does not exist in the cache.
-        """
-
-        full_cache_key: str = "current_" + cache_key
-        weather_data = self.redis_client.hget(full_cache_key, "weather_data")
-        weather_obj: CurrentWeather = CurrentWeather.model_validate(
-            from_json(weather_data, allow_partial=True)
+        expiration_time: int = (
+            CURRENT_WEATHER_EXPIRATION_TIME
+            if prefix == "current"
+            else DAILY_WEATHER_EXPIRATION_TIME
         )
-        return weather_obj
+        self.redis_client.expire(full_cache_key, expiration_time)
 
-    def has_current_weather(self, cache_key: str) -> bool:
-        """
-        Checks if current weather data exists in the cache under the given cache key.
-
-        Args:
-            cache_key (str): The cache key to check for current weather data.
-
-        Returns:
-            bool: True if the current weather data exists in the cache, False otherwise.
-        """
-        full_cache_key: str = "current_" + cache_key
+    def has_weather(self, prefix: str, loc: Coordinates) -> bool:
+        """Check if the weather data exists in the cache."""
+        full_cache_key: str = prefix + "_" + generate_cache_key(loc)
         return self.redis_client.exists(full_cache_key) == 1
+
+    def get_weather(
+        self, prefix: str, loc: Coordinates
+    ) -> CurrentWeather | DailyWeather | None:
+        """Get the weather data from the cache."""
+        full_cache_key: str = prefix + "_" + generate_cache_key(loc)
+        cached_data: str | None = self.redis_client.hget(full_cache_key, "weather_data")
+        if cached_data is None:
+            return None
+        return (
+            CurrentWeather.model_validate_json(cached_data)
+            if prefix == "current"
+            else DailyWeather.model_validate_json(cached_data)
+        )
+
+
+def generate_cache_key(loc: Coordinates) -> str:
+    """
+    Generate a cache key using geohash encoding from a Coordinates object.
+    This function encodes the given geographical coordinates into a geohash
+    string with a precision of 4, which corresponds to about 39km x 20km block.
+    Args:
+        loc (Coordinates): The location for which to generate a cache key.
+    Returns:
+        str: A geohash string used as the cache key.
+    """
+    geohash_key = geohash.encode(loc.lat, loc.lon, precision=4)
+    return geohash_key

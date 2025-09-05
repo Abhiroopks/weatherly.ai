@@ -5,9 +5,14 @@ from directions.models import Coordinates, Directions
 from geolocate import get_geo_from_address
 from weather.models import (
     CurrentWeather,
+    DailyWeather,
     DrivingReport,
 )
-from weather.weather import generate_weather_report, get_current_weather
+from weather.weather import (
+    generate_weather_report,
+    get_current_weather,
+    get_daily_weather,
+)
 
 app = FastAPI()
 
@@ -61,7 +66,7 @@ def _get_driving_report(
 
     try:
         directions: Directions = get_directions(start_coord, end_coord)
-        geo_points: list[tuple[str, Coordinates]] = split_directions(directions)
+        geo_points: list[Coordinates] = split_directions(directions)
         weather_data: list[CurrentWeather] = get_current_weather(
             geo_points, use_cache=use_cache
         )
@@ -91,34 +96,29 @@ def get_driving_report(start_address: str, end_address: str) -> DrivingReport:
     return _get_driving_report(start_address, end_address, use_cache=True)
 
 
-# @app.get("/weather/daily/{address}/{days}")
-# def get_weather_daily(days: int, address: str) -> DailyWeatherReport:
-#     """
-#     Generates a weather report for a single location for the next {days} days,
-#     inclusive of today. Maximum of {MAX_DAYS} days.
+@app.get("/weather/daily/{address}/{days}")
+def get_weather_daily(days: int, address: str) -> DailyWeather:
+    geo: dict | None = get_geo_from_address(address)
+    if geo is None:
+        raise HTTPException(status_code=500, detail="Failed to geocode address")
 
-#     Args:
-#         address: The address to generate weather data for.
-#         days: The number of days to generate weather data for.
-
-#     Returns:
-#         DailyWeatherReport: A DailyWeatherReport object containing the weather details.
-#     """
-#     pass
+    lat: float = geo["lat"]
+    lon: float = geo["lon"]
+    return get_daily_weather(Coordinates((lat, lon)), use_cache=True, days=days)
 
 
-# @app.get("/weather/today/{address}")
-# def get_weather_today(address: str) -> DailyWeatherReport:
-#     """
-#     Generates a weather report for a single location for just today.
+@app.get("/weather/today/{address}")
+def get_weather_today(address: str) -> DailyWeather:
+    """
+    Generates a weather report for a single location for just today.
 
-#     Args:
-#         address: The address to generate weather data for.
+    Args:
+        address: The address to generate weather data for.
 
-#     Returns:
-#         DailyWeatherReport: A DailyWeatherReport object containing the weather details for today.
-#     """
-#     pass
+    Returns:
+        DailyWeather: A DailyWeather object containing the weather details for today.
+    """
+    return get_weather_daily(1, address)
 
 
 # @app.get("/weather/hourly/{address}/{hours}")

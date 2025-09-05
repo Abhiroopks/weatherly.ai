@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 from typing import Any
 
 import openmeteo_requests
@@ -14,13 +15,11 @@ from ai.prompts import WEATHER_DESCRIPTION
 from directions.models import Coordinates
 from weather.cache import WeatherDataCache
 from weather.models import (
-    CURRENT_WEATHER_PARAMS,
-    DAILY_WEATHER_PARAMS,
-    HOURLY_WEATHER_PARAMS,
     IDEAL_TEMP_RANGE,
     WEATHER_COMFORT_WEIGHTS,
     WMO_WEATHER_CODES,
     CurrentWeather,
+    DailyWeather,
     DrivingReport,
 )
 
@@ -406,26 +405,53 @@ def generate_weather_report(
     return weather_report
 
 
+def get_daily_weather(
+    loc: Coordinates, use_cache: bool = True, days: int = 1
+) -> DailyWeather:
+    prefix: str = "daily"
+
+    if use_cache and WEATHER_CACHE.has_weather(prefix, loc):
+        daily_weather: DailyWeather = WEATHER_CACHE.get_weather(prefix, loc)  # type: ignore
+    else:
+        params: dict = {
+            "latitude": loc.lat,
+            "longitude": loc.lon,
+            "daily": [
+                "weather_code",
+                "temperature_2m_max",
+                "temperature_2m_min",
+                "apparent_temperature_max",
+                "apparent_temperature_min",
+                "sunrise",
+                "sunset",
+                "precipitation_sum",
+                "wind_speed_10m_max",
+            ],
+            "forecast_days": days,
+            "timezone": "auto",
+        }
+
+        response: list[WeatherApiResponse] = OPENMETEO.weather_api(
+            WEATHER_URL, params=params
+        )
+
+        daily_weather = DailyWeather(**parse_daily_weather_api_response(response[0]))
+
+        if use_cache:
+            WEATHER_CACHE.add_weather(prefix, loc, daily_weather)
+
+    return daily_weather
+
+
 def get_current_weather(
-    locations: list[tuple[str, Coordinates]], use_cache: bool = True
+    locations: list[Coordinates], use_cache: bool = True
 ) -> list[CurrentWeather]:
-    """
-    Get current weather data for each location in the given list of locations.
-
-    Args:
-        locations (list[tuple[str, Coordinates]]): A list of tuples, where each tuple contains a
-            geo_key and a Coordinates object representing the location.
-        use_cache (bool, optional): Whether to use the cache for current weather data. Defaults to True.
-
-    Returns:
-        list[CurrentWeather]: A list of CurrentWeather objects, one for each location.
-    """
-
     weather_data: list[CurrentWeather] = []
+    prefix: str = "current"
 
-    for geo_key, loc in locations:
-        if use_cache and WEATHER_CACHE.has_current_weather(geo_key):
-            weather_data.append(WEATHER_CACHE.get_current_weather(geo_key))
+    for loc in locations:
+        if use_cache and WEATHER_CACHE.has_weather(prefix, loc):
+            weather_data.append(WEATHER_CACHE.get_weather(prefix, loc))  # type: ignore
         else:
             params: dict = {
                 "latitude": loc.lat,
@@ -450,7 +476,7 @@ def get_current_weather(
 
             weather_data.append(current_weather)
             if use_cache:
-                WEATHER_CACHE.add_current_weather(geo_key, current_weather)
+                WEATHER_CACHE.add_weather(prefix, loc, current_weather)
 
     return weather_data
 
@@ -464,8 +490,6 @@ def parse_daily_weather_api_response(response: WeatherApiResponse) -> dict[str, 
 
     Returns:
         dict[str, Any]: A dictionary containing the daily weather data.
-            The keys are the names of the variables and the values are tuples
-            containing the corresponding values.
     """
     output: dict[str, Any] = {}
 
@@ -473,25 +497,44 @@ def parse_daily_weather_api_response(response: WeatherApiResponse) -> dict[str, 
     if daily is None:
         return output
 
-    for i, param in enumerate(DAILY_WEATHER_PARAMS):
-        output[param] = daily.Variables(i).ValuesAsNumpy()
+    utf_offset: int = response.UtcOffsetSeconds()
 
-    # output["weather_code"] = daily.Variables(0).ValuesAsNumpy()
-    # output["max_temp"] = daily.Variables(1).ValuesAsNumpy()
-    # output["min_temp"] = daily.Variables(2).ValuesAsNumpy()
-    # output["apparent_temp_max"] = daily.Variables(3).ValuesAsNumpy()
-    # output["apparent_temp_min"] = daily.Variables(4).ValuesAsNumpy()
-    # output["sunrise"] = daily.Variables(5).ValuesInt64AsNumpy()
-    # output["sunset"] = daily.Variables(6).ValuesInt64AsNumpy()
-    # output["precipitation_sum"] = daily.Variables(7).ValuesAsNumpy()
-    # output["wind_speed_max"] = daily.Variables(8).ValuesAsNumpy()
+    output["wmo_description"] = [
+        WMO_WEATHER_CODES[int(wmo_code)]
+        for wmo_code in daily.Variables(0).ValuesAsNumpy()
+    ]
 
-    output["date"] = pd.date_range(
-        start=pd.to_datetime(daily.Time(), unit="s", utc=True),
-        end=pd.to_datetime(daily.TimeEnd(), unit="s", utc=True),
-        freq=pd.Timedelta(seconds=daily.Interval()),
-        inclusive="left",
+    output["max_temp"] = daily.Variables(1).ValuesAsNumpy().tolist()
+    output["min_temp"] = daily.Variables(2).ValuesAsNumpy().tolist()
+    output["max_apparent_temp"] = daily.Variables(3).ValuesAsNumpy().tolist()
+    output["min_apparent_temp"] = daily.Variables(4).ValuesAsNumpy().tolist()
+
+    output["sunrise"] = [
+        datetime.fromtimestamp(ts + utf_offset).strftime("%I:%M %p")
+        for ts in daily.Variables(5).ValuesInt64AsNumpy()
+    ]
+    output["sunset"] = [
+        datetime.fromtimestamp(ts + utf_offset).strftime("%I:%M %p")
+        for ts in daily.Variables(6).ValuesInt64AsNumpy()
+    ]
+
+    # output["sunrise"] = daily.Variables(5).ValuesInt64AsNumpy().tolist()
+    # output["sunset"] = daily.Variables(6).ValuesInt64AsNumpy().tolist()
+    output["precipitation_sum"] = daily.Variables(7).ValuesAsNumpy().tolist()
+    output["max_wind_speed"] = daily.Variables(8).ValuesAsNumpy().tolist()
+
+    output["date"] = (
+        pd.date_range(
+            start=pd.to_datetime(daily.Time() + utf_offset, unit="s", utc=True),
+            end=pd.to_datetime(daily.TimeEnd() + utf_offset, unit="s", utc=True),
+            freq=pd.Timedelta(seconds=daily.Interval()),
+            inclusive="left",
+        )
+        .strftime("%Y-%m-%d")
+        .tolist()
     )
+
+    output["location"] = f"{response.Latitude()}, , {response.Longitude()}"
 
     return output
 
@@ -513,19 +556,12 @@ def parse_current_weather_api_response(response: WeatherApiResponse) -> dict[str
     if current is None:
         return output
 
-    for i, param in enumerate(CURRENT_WEATHER_PARAMS):
-        if param == "weather_description":
-            output[param] = WMO_WEATHER_CODES[int(current.Variables(i).Value())]
-            continue
-
-        output[param] = current.Variables(i).Value()
-
-    # output["apparent_temp"] = current.Variables(0).Value()
-    # output["precipitation"] = current.Variables(1).Value()
-    # output["weather_description"] = WMO_WEATHER_CODES[current.Variables(2).Value()]
-    # output["is_day"] = current.Variables(3).Value()
-    # output["wind_gusts"] = current.Variables(4).Value()
-    # output["visibility"] = current.Variables(5).Value()
+    output["apparent_temp"] = current.Variables(0).Value()
+    output["precipitation"] = current.Variables(1).Value()
+    output["wmo_description"] = WMO_WEATHER_CODES[int(current.Variables(2).Value())]
+    output["is_day"] = current.Variables(3).Value()
+    output["wind_gusts"] = current.Variables(4).Value()
+    output["visibility"] = current.Variables(5).Value()
 
     return output
 
@@ -548,21 +584,22 @@ def parse_hourly_weather_api_response(response: WeatherApiResponse) -> dict[str,
     if hourly is None:
         return output
 
-    for i, param in enumerate(HOURLY_WEATHER_PARAMS):
-        output[param] = hourly.Variables(i).ValuesAsNumpy()
+    output["temperature"] = hourly.Variables(0).ValuesAsNumpy()
+    output["humidity"] = hourly.Variables(1).ValuesAsNumpy()
+    output["apparent_temperature"] = hourly.Variables(2).ValuesAsNumpy()
+    output["precipitation"] = hourly.Variables(3).ValuesAsNumpy()
+    output["weather_code"] = hourly.Variables(4).ValuesAsNumpy()
+    output["wind_speed"] = hourly.Variables(5).ValuesAsNumpy()
 
-    # output["temperature"] = hourly.Variables(0).ValuesAsNumpy()
-    # output["humidity"] = hourly.Variables(1).ValuesAsNumpy()
-    # output["apparent_temperature"] = hourly.Variables(2).ValuesAsNumpy()
-    # output["precipitation"] = hourly.Variables(3).ValuesAsNumpy()
-    # output["weather_code"] = hourly.Variables(4).ValuesAsNumpy()
-    # output["wind_speed"] = hourly.Variables(5).ValuesAsNumpy()
-
-    output["date"] = pd.date_range(
-        start=pd.to_datetime(hourly.Time(), unit="s", utc=True),
-        end=pd.to_datetime(hourly.TimeEnd(), unit="s", utc=True),
-        freq=pd.Timedelta(seconds=hourly.Interval()),
-        inclusive="left",
+    output["date"] = (
+        pd.date_range(
+            start=pd.to_datetime(hourly.Time(), unit="s", utc=True),
+            end=pd.to_datetime(hourly.TimeEnd(), unit="s", utc=True),
+            freq=pd.Timedelta(seconds=hourly.Interval()),
+            inclusive="left",
+        )
+        .strftime("%Y-%m-%d")
+        .tolist()
     )
 
     return output

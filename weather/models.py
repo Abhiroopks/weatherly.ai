@@ -1,37 +1,9 @@
 import datetime
 from typing import Literal
 
+import numpy as np
+import pandas as pd
 from pydantic import BaseModel
-
-CURRENT_WEATHER_PARAMS: list[str] = [
-    "apparent_temp",
-    "precipitation",
-    "weather_description",
-    "is_day",
-    "wind_gusts",
-    "visibility",
-]
-
-HOURLY_WEATHER_PARAMS: list[str] = [
-    "temperature",
-    "humidity",
-    "apparent_temperature",
-    "precipitation",
-    "weather_code",
-    "wind_speed",
-]
-
-DAILY_WEATHER_PARAMS: list[str] = [
-    "weather_code",
-    "max_temp",
-    "min_temp",
-    "apparent_temp_max",
-    "apparent_temp_min",
-    "sunrise",
-    "sunset",
-    "precipitation_sum",
-    "wind_speed_max",
-]
 
 # Mapping of WMO weather codes to weather descriptions.
 WMO_WEATHER_CODES: dict[int, str] = {
@@ -109,16 +81,17 @@ class DailyWeather(BaseModel):
     Weather data for a number of consecutive days, for a single location.
     """
 
-    date: str
+    date: list[str]
     location: str
-    max_temp: float
-    min_temp: float
-    apparent_temp_max: float
-    apparent_temp_min: float
-    sunrise: datetime.time
-    sunset: datetime.time
-    precipitation_sum: float
-    wind_speed_max: float
+    wmo_description: list[str]
+    max_temp: list[float]
+    min_temp: list[float]
+    max_apparent_temp: list[float]
+    min_apparent_temp: list[float]
+    sunrise: list[str]
+    sunset: list[str]
+    precipitation_sum: list[float]
+    max_wind_speed: list[float]
 
     class Config:
         arbitrary_types_allowed = True
@@ -132,13 +105,13 @@ class HourlyWeather(BaseModel):
     Weather data for a number of consecutive hours, for a single location.
     """
 
-    date: str
+    date: list[pd.Timestamp]
     location: str
-    temp: float
-    apparent_temp: float
-    humidity: float
-    precipitation_sum: float
-    wind_speed: float
+    temp: list[float]
+    apparent_temp: list[float]
+    humidity: list[float]
+    precipitation_sum: list[float]
+    wind_speed: list[float]
 
     class Config:
         arbitrary_types_allowed = True
