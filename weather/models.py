@@ -1,8 +1,5 @@
-import datetime
 from typing import Literal
 
-import numpy as np
-import pandas as pd
 from pydantic import BaseModel
 
 # Mapping of WMO weather codes to weather descriptions.
@@ -62,9 +59,6 @@ class CurrentWeather(BaseModel):
     wind_gusts: float
     visibility: float
 
-    def __init__(self, **kwargs: dict) -> None:
-        super().__init__(**kwargs)
-
 
 class DrivingReport(BaseModel):
     max_precip: float
@@ -78,26 +72,21 @@ class DrivingReport(BaseModel):
 
 class DailyWeather(BaseModel):
     """
-    Weather data for a number of consecutive days, for a single location.
+    Weather data for a single day, for a single location.
     """
 
-    date: list[str]
-    location: str
-    wmo_description: list[str]
-    max_temp: list[float]
-    min_temp: list[float]
-    max_apparent_temp: list[float]
-    min_apparent_temp: list[float]
-    sunrise: list[str]
-    sunset: list[str]
-    precipitation_sum: list[float]
-    max_wind_speed: list[float]
-
-    class Config:
-        arbitrary_types_allowed = True
-
-    def __init__(self, **kwargs: dict) -> None:
-        super().__init__(**kwargs)
+    date: str
+    latitude: float
+    longitude: float
+    wmo_description: str
+    max_temp: float
+    min_temp: float
+    max_apparent_temp: float
+    min_apparent_temp: float
+    sunrise: str
+    sunset: str
+    precipitation_sum: float
+    max_wind_speed: float
 
 
 class HourlyWeather(BaseModel):
@@ -105,13 +94,10 @@ class HourlyWeather(BaseModel):
     Weather data for a number of consecutive hours, for a single location.
     """
 
-    date: list[pd.Timestamp]
+    date: str
     location: str
-    temp: list[float]
-    apparent_temp: list[float]
-    humidity: list[float]
-    precipitation_sum: list[float]
-    wind_speed: list[float]
-
-    class Config:
-        arbitrary_types_allowed = True
+    temp: float
+    apparent_temp: float
+    humidity: float
+    precipitation_sum: float
+    wind_speed: float

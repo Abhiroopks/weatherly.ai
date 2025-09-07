@@ -97,27 +97,34 @@ def get_driving_report(start_address: str, end_address: str) -> DrivingReport:
 
 
 @app.get("/weather/daily/{address}/{days}")
-def get_weather_daily(days: int, address: str) -> DailyWeather:
+def get_weather_daily(days: int, address: str) -> list[DailyWeather]:
+    if days > MAX_DAYS:
+        raise HTTPException(
+            status_code=400, detail=f"Days must be less than or equal to {MAX_DAYS}"
+        )
+
     geo: dict | None = get_geo_from_address(address)
     if geo is None:
         raise HTTPException(status_code=500, detail="Failed to geocode address")
 
     lat: float = geo["lat"]
     lon: float = geo["lon"]
-    return get_daily_weather(Coordinates((lat, lon)), use_cache=True, days=days)
+    return get_daily_weather(Coordinates((lat, lon)), days=days)
+
+
+# @app.get("/weather/daily/{address}/{days}")
+# def get_weather_daily(days: int, address: str) -> DailyWeather:
+#     geo: dict | None = get_geo_from_address(address)
+#     if geo is None:
+#         raise HTTPException(status_code=500, detail="Failed to geocode address")
+
+#     lat: float = geo["lat"]
+#     lon: float = geo["lon"]
+#     return get_daily_weather(Coordinates((lat, lon)), use_cache=True, days=days)
 
 
 @app.get("/weather/today/{address}")
-def get_weather_today(address: str) -> DailyWeather:
-    """
-    Generates a weather report for a single location for just today.
-
-    Args:
-        address: The address to generate weather data for.
-
-    Returns:
-        DailyWeather: A DailyWeather object containing the weather details for today.
-    """
+def get_weather_today(address: str) -> list[DailyWeather]:
     return get_weather_daily(1, address)
 
 
