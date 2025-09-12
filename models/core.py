@@ -4,30 +4,9 @@ Data model definitions
 
 import json
 
-from pydantic import BaseModel
-
-
-class Coordinates(BaseModel):
-    """
-    Coordinates class
-
-    Attributes:
-        lat (float): The latitude
-        lon (float): The longitude
-    """
-
-    def __init__(self, coordinates: tuple[float, float], reverse: bool = False):
-        super().__init__(
-            lat=coordinates[1] if reverse else coordinates[0],
-            lon=coordinates[0] if reverse else coordinates[1],
-        )
-
-    lat: float
-    lon: float
-
 
 class DictObj:
-    def __init__(self, in_dict: dict):
+    def __init__(self, in_dict: dict) -> None:
         """
         Initialize the object from a dictionary.
 
@@ -49,7 +28,7 @@ class DictObj:
             else:
                 setattr(self, key, DictObj(val) if isinstance(val, dict) else val)
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         Return a JSON formatted string of the object.
 
@@ -59,5 +38,12 @@ class DictObj:
         return json.dumps(self.__dict__, default=lambda o: o.__dict__, indent=4)
 
 
-class Directions(DictObj):
-    pass
+class Coordinate:
+    def __init__(self, lat: float, lon: float) -> None:
+        if isinstance(lat, str):
+            lat = float(lat)
+        if isinstance(lon, str):
+            lon = float(lon)
+
+        self.lat: float = lat
+        self.lon: float = lon

@@ -89,6 +89,11 @@ class DailyWeather(BaseModel):
     max_wind_speed: float
 
 
+class DailyWeatherReport(BaseModel):
+    data: list[DailyWeather]
+    description: str
+
+
 class HourlyWeather(BaseModel):
     """
     Weather data for a number of consecutive hours, for a single location.

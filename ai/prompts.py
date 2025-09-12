@@ -15,3 +15,32 @@ comfort score is {}. Units for temperature are celsius, wind speed is in
 kilometers per hour, visibility in meters, and precipitation in mm. 
 The weather data over the course of the route is: {}.
 """
+
+DAILY_WEATHER_DESCRIPTION: str = """
+You are given a sequence of daily weather records for a single location. 
+Each record has the following fields:
+
+- date: YYYY-MM-DD
+- latitude, longitude: coordinates (ignore this field)
+- wmo_description: short standardized weather label
+- description: empty (ignore this field)
+- max_temp, min_temp: daily max and min temperature
+- max_apparent_temp, min_apparent_temp: feels-like temperature range
+- sunrise, sunset: local times
+- precipitation_sum: total daily precipitation
+- max_wind_speed: maximum wind speed
+
+TASK:
+Produce a human-readable narrative that summarizes the weather over the sequence. 
+Keep it concise and clear for a general audience. 
+Mention trends in temperature, precipitation, and wind. 
+Highlight notable events (storms, heavy rain, unusual heat/cold). 
+Do not repeat raw numbers unless they are important for context. 
+Do not output JSON or structured data—only a natural language summary.
+
+LOCATION:
+{}
+
+WEATHER DATA:
+{}
+"""

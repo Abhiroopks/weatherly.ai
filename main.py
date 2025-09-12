@@ -1,22 +1,26 @@
 from fastapi import FastAPI, HTTPException
 
 from directions.directions import get_directions, split_directions
-from directions.models import Coordinates, Directions
 from geolocate import get_geo_from_address
-from weather.models import (
+from models.core import Coordinate
+from models.directions import Directions
+from models.weather import (
     CurrentWeather,
     DailyWeather,
     DrivingReport,
 )
+from weather.cache import RedisWeatherCache, WeatherCache
 from weather.weather import (
     generate_weather_report,
     get_current_weather,
-    get_daily_weather,
+    get_daily_weather_report,
 )
 
 app = FastAPI()
 
 MAX_DAYS: int = 7
+
+REDIS_CACHE: RedisWeatherCache = RedisWeatherCache(redis_host="redis")
 
 
 @app.get("/")
@@ -30,7 +34,7 @@ def read_root() -> dict[str, str]:
 
 
 def _get_driving_report(
-    start_address: str, end_address: str, use_cache: bool
+    start_address: str, end_address: str, cache: WeatherCache
 ) -> DrivingReport:
     """
     Generates a weather report for the given start and end addresses.
@@ -38,40 +42,24 @@ def _get_driving_report(
     Args:
         start_address: The starting address for the route.
         end_address: The ending address for the route.
-        use_cache: Whether to use the cache when generating the weather report.
 
     Returns:
         DrivingReport: An object containing the weather details for the route.
     """
-    start_geo: dict | None = get_geo_from_address(start_address)
-    if start_geo is None:
+    start: dict | None = get_geo_from_address(start_address)
+    if start is None:
         raise HTTPException(status_code=500, detail="Failed to geocode start address")
-    start_city: str = (
-        start_geo["address"]["city"] if "city" in start_geo["address"] else ""
-    )
-    start_state: str = (
-        start_geo["address"]["state"] if "state" in start_geo["address"] else ""
-    )
 
-    end_geo: dict | None = get_geo_from_address(end_address)
-    if end_geo is None:
+    end: dict | None = get_geo_from_address(end_address)
+    if end is None:
         raise HTTPException(status_code=500, detail="Failed to geocode end address")
-    end_city: str = end_geo["address"]["city"] if "city" in end_geo["address"] else ""
-    end_state: str = (
-        end_geo["address"]["state"] if "state" in end_geo["address"] else ""
-    )
-
-    start_coord = Coordinates((start_geo["lat"], start_geo["lon"]))
-    end_coord = Coordinates((end_geo["lat"], end_geo["lon"]))
 
     try:
-        directions: Directions = get_directions(start_coord, end_coord)
-        geo_points: list[Coordinates] = split_directions(directions)
-        weather_data: list[CurrentWeather] = get_current_weather(
-            geo_points, use_cache=use_cache
-        )
+        directions: Directions = get_directions(start, end)
+        geo_points: list = split_directions(directions)
+        weather_data: list[CurrentWeather] = get_current_weather(geo_points, cache)
         weather_report: DrivingReport = generate_weather_report(
-            weather_data, start_city, start_state, end_city, end_state
+            weather_data, start, end
         )
     except Exception as e:
         raise HTTPException(
@@ -93,11 +81,11 @@ def get_driving_report(start_address: str, end_address: str) -> DrivingReport:
     Returns:
         DrivingReport: An object containing the weather details for the route.
     """
-    return _get_driving_report(start_address, end_address, use_cache=True)
+    return _get_driving_report(start_address, end_address, REDIS_CACHE)
 
 
 @app.get("/weather/daily/{address}/{days}")
-def get_weather_daily(days: int, address: str) -> list[DailyWeather]:
+def get_weather_daily(days: int, address: str) -> dict[str, list[DailyWeather] | str]:
     if days > MAX_DAYS:
         raise HTTPException(
             status_code=400, detail=f"Days must be less than or equal to {MAX_DAYS}"
@@ -109,7 +97,13 @@ def get_weather_daily(days: int, address: str) -> list[DailyWeather]:
 
     lat: float = geo["lat"]
     lon: float = geo["lon"]
-    return get_daily_weather(Coordinates((lat, lon)), days=days)
+    return get_daily_weather_report(
+        cache=REDIS_CACHE,
+        city=geo["address"]["city"],
+        state=geo["address"]["state"],
+        loc=Coordinate(lat, lon),
+        days=days,
+    )
 
 
 # @app.get("/weather/daily/{address}/{days}")
@@ -124,7 +118,7 @@ def get_weather_daily(days: int, address: str) -> list[DailyWeather]:
 
 
 @app.get("/weather/today/{address}")
-def get_weather_today(address: str) -> list[DailyWeather]:
+def get_weather_today(address: str) -> dict[str, list[DailyWeather] | str]:
     return get_weather_daily(1, address)
 
 
