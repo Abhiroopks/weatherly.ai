@@ -1,6 +1,6 @@
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, FastAPI, HTTPException
+from fastapi import APIRouter, FastAPI, HTTPException, Path
 
 from directions.directions import get_directions, split_directions
 from geolocate import get_geo_from_address
@@ -26,6 +26,15 @@ MAX_HOURS: int = 24
 
 class WeatherlyAppWrapper(FastAPI):
     def __init__(self, cache: WeatherCache) -> None:
+        """
+        Initialize a WeatherlyAppWrapper object.
+
+        Args:
+            cache (WeatherCache): A WeatherCache object to use for storing and retrieving weather data.
+
+        Returns:
+            None
+        """
         super().__init__()
         self.cache: WeatherCache = cache
 
@@ -37,7 +46,7 @@ class WeatherlyAppWrapper(FastAPI):
         router.add_api_route("/weather/daily/{address}/{days}", self.get_weather_daily)
         router.add_api_route("/weather/today/{address}", self.get_weather_today)
         router.add_api_route(
-            "/weather/hourly/{address}/{hours}/{timezone}", self.get_weather_hourly
+            "/weather/hourly/{address}/{hours}/{timezone:path}", self.get_weather_hourly
         )
         self.include_router(router)
 
@@ -91,7 +100,11 @@ class WeatherlyAppWrapper(FastAPI):
 
         return weather_report
 
-    def get_driving_report(self, start_address: str, end_address: str) -> DrivingReport:
+    def get_driving_report(
+        self,
+        start_address: str = Path(..., description="Start address"),
+        end_address: str = Path(..., description="End address"),
+    ) -> DrivingReport:
         """
         Generates a weather report based on the given start and end addresses.
 
@@ -104,7 +117,21 @@ class WeatherlyAppWrapper(FastAPI):
         """
         return self._get_driving_report(start_address, end_address)
 
-    def get_weather_daily(self, days: int, address: str) -> DailyWeatherReport:
+    def get_weather_daily(
+        self,
+        days: int = Path(..., description="Number of days"),
+        address: str = Path(..., description="Address to generate weather data for"),
+    ) -> DailyWeatherReport:
+        """
+        Generates a daily weather report for the given address for the next {days} days.
+
+        Args:
+            days (int): The number of days to generate the weather report for.
+            address (str): The address to generate the weather report for.
+
+        Returns:
+            DailyWeatherReport: An object containing the weather details for the given address for the next {days} days.
+        """
         if days > MAX_DAYS:
             raise HTTPException(
                 status_code=400, detail=f"Days must be less than or equal to {MAX_DAYS}"
@@ -124,11 +151,27 @@ class WeatherlyAppWrapper(FastAPI):
             days=days,
         )
 
-    def get_weather_today(self, address: str) -> DailyWeatherReport:
+    def get_weather_today(
+        self, address: str = Path(..., description="Address")
+    ) -> DailyWeatherReport:
+        """
+        Generates a daily weather report for the given address for today.
+
+        Args:
+            address: The address to generate the weather report for.
+
+        Returns:
+            DailyWeatherReport: An object containing the weather details for the given address for today.
+        """
         return self.get_weather_daily(1, address)
 
     def get_weather_hourly(
-        self, address: str, hours: int, timezone: str
+        self,
+        address: str = Path(..., description="Address to generate weather data for"),
+        hours: int = Path(
+            ..., description="Number of hours to generate weather data for"
+        ),
+        timezone: str = Path(..., description="Timezone in IANA format"),
     ) -> HourlyWeatherReport:
         """
         Generates a weather report for a single location for the next {hours} hours.
@@ -149,7 +192,7 @@ class WeatherlyAppWrapper(FastAPI):
             )
 
         try:
-            tz: ZoneInfo | None = ZoneInfo(timezone.replace("%2f", "/"))
+            tz: ZoneInfo | None = ZoneInfo(timezone)
         except Exception:
             raise HTTPException(status_code=400, detail=f"Invalid timezone: {timezone}")
 
