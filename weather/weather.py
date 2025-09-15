@@ -1,6 +1,7 @@
 import os
 from datetime import datetime, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import openmeteo_requests
 import pandas as pd
@@ -11,7 +12,11 @@ from openmeteo_sdk.WeatherApiResponse import WeatherApiResponse
 from retry_requests import retry
 
 from ai.chat import chat
-from ai.prompts import DAILY_WEATHER_DESCRIPTION, WEATHER_DESCRIPTION
+from ai.prompts import (
+    DAILY_WEATHER_DESCRIPTION,
+    HOURLY_WEATHER_DESCRIPTION,
+    WEATHER_DESCRIPTION,
+)
 from models.core import Coordinate
 from models.weather import (
     IDEAL_TEMP_RANGE,
@@ -19,12 +24,18 @@ from models.weather import (
     WMO_WEATHER_CODES,
     CurrentWeather,
     DailyWeather,
+    DailyWeatherReport,
     DrivingReport,
+    HourlyWeather,
+    HourlyWeatherReport,
 )
 from weather.cache import WeatherCache
 
 # Number of days to forecast. Used in openmeteo API call.
 FORECAST_DAYS: int = 7
+
+# Number of hours to forecast. Used in openmeteo API call.
+FORECAST_HOURS: int = 24
 
 # Setup the Open-Meteo API client with cache and retry on error.
 CACHE_SESSION = requests_cache.CachedSession(".cache", expire_after=3600)
@@ -207,6 +218,14 @@ def calculate_comfort_score(
     )
 
     return round(comfort_score)
+
+
+def generate_llm_hourly_description(
+    weather_data: list[HourlyWeather], location: str
+) -> str | None:
+    content: str = HOURLY_WEATHER_DESCRIPTION.format(location, weather_data)
+
+    return chat(prompt=content)
 
 
 def generate_llm_daily_description(
@@ -449,7 +468,7 @@ def get_daily_weather_report(
     state: str,
     loc: Coordinate,
     days: int = 1,
-) -> dict[str, list[DailyWeather] | str]:
+) -> DailyWeatherReport:
     prefix: str = "daily"
 
     weather_days: list[DailyWeather] = []
@@ -512,7 +531,74 @@ def get_daily_weather_report(
     if description is None:
         description = "Failed to generate via LLM."
 
-    return {"days": weather_days, "description": description}
+    return DailyWeatherReport(data=weather_days, description=description)
+
+
+def get_hourly_weather_report(
+    location: Coordinate,
+    hours: int,
+    timezone: ZoneInfo,
+    city: str,
+    state: str,
+    cache: WeatherCache,
+) -> HourlyWeatherReport:
+    prefix: str = "hourly"
+    weather_hours: list[HourlyWeather] = []
+
+    for hour_offset in range(hours):
+        date: datetime = datetime.now(tz=timezone) + timedelta(hours=hour_offset)
+        date_str: str = date.strftime("%-I %p %d-%m-%Y")
+        full_prefix: str = f"{prefix}_{date_str}"
+        # Check if the weather for this day is already in the cache.
+        if cache.has_weather(full_prefix, location):
+            hourly_weather: HourlyWeather = cache.get_weather(full_prefix, location)  # type: ignore
+            weather_hours.append(hourly_weather)
+        else:
+            # If we don't have cached data, fetch it from the API and cache it.
+            params: dict = {
+                "latitude": location.lat,
+                "longitude": location.lon,
+                "hourly": [
+                    "apparent_temperature",
+                    "precipitation",
+                    "weather_code",
+                    "wind_speed_10m",
+                    "relative_humidity_2m",
+                    "temperature_2m",
+                ],
+                "forecast_hours": FORECAST_HOURS,
+                "timezone": "auto",
+            }
+
+            response: list[WeatherApiResponse] = OPENMETEO.weather_api(
+                WEATHER_URL, params=params
+            )
+
+            # Parse the API response into a list of HourlyWeather objects.
+            hourly_weather_list: list[HourlyWeather] = (
+                parse_hourly_weather_api_response(response[0])
+            )
+
+            # Find the HourlyWeather object for the current hour and add it to the list.
+            for _hourly_weather in hourly_weather_list:
+                if _hourly_weather.date == date_str:
+                    weather_hours.append(_hourly_weather)
+
+            # Cache the weather for each hour.
+            for _hour_offset in range(FORECAST_HOURS):
+                _hourly_weather: HourlyWeather = hourly_weather_list[_hour_offset]
+                _hour: datetime = datetime.now() + timedelta(hours=_hour_offset)
+                _full_prefix: str = f"{prefix}_{_hour.strftime('%-I %p %d-%m-%Y')}"
+                cache.add_weather(_full_prefix, location, _hourly_weather)
+
+    description: str | None = generate_llm_hourly_description(
+        weather_hours, f"{city}, {state}"
+    )
+
+    if description is None:
+        description = "Failed to generate via LLM."
+
+    return HourlyWeatherReport(data=weather_hours, description=description)
 
 
 def get_current_weather(locations: list, cache: WeatherCache) -> list[CurrentWeather]:
@@ -667,40 +753,55 @@ def parse_current_weather_api_response(response: WeatherApiResponse) -> dict[str
     return output
 
 
-def parse_hourly_weather_api_response(response: WeatherApiResponse) -> dict[str, Any]:
-    """
-    Parse the response from the OpenMeteo API and extract the hourly weather data.
-
-    Args:
-        response (WeatherApiResponse): The response from the OpenMeteo API.
-
-    Returns:
-        dict[str, Any]: A dictionary containing the hourly weather data.
-            The keys are the names of the variables and the values are tuples
-            containing the corresponding values.
-    """
-    output: dict[str, Any] = {}
+def parse_hourly_weather_api_response(
+    response: WeatherApiResponse,
+) -> list[HourlyWeather]:
+    output: list[HourlyWeather] = []
 
     hourly: VariablesWithTime | None = response.Hourly()
     if hourly is None:
         return output
 
-    output["temperature"] = hourly.Variables(0).ValuesAsNumpy()
-    output["humidity"] = hourly.Variables(1).ValuesAsNumpy()
-    output["apparent_temperature"] = hourly.Variables(2).ValuesAsNumpy()
-    output["precipitation"] = hourly.Variables(3).ValuesAsNumpy()
-    output["weather_code"] = hourly.Variables(4).ValuesAsNumpy()
-    output["wind_speed"] = hourly.Variables(5).ValuesAsNumpy()
+    # Extract the UTC offset from the API response.
+    utc_offset: int = response.UtcOffsetSeconds()
 
-    output["date"] = (
+    apparent_temp: list[float] = hourly.Variables(0).ValuesAsNumpy().tolist()
+    precipitation: list[float] = hourly.Variables(1).ValuesAsNumpy().tolist()
+    weather_code: list[str] = [
+        WMO_WEATHER_CODES[int(code)]
+        for code in hourly.Variables(2).ValuesAsNumpy().tolist()
+    ]
+    wind_speed_10m: list[float] = hourly.Variables(3).ValuesAsNumpy().tolist()
+    relative_humidity_2m: list[float] = hourly.Variables(4).ValuesAsNumpy().tolist()
+    temp: list[float] = hourly.Variables(5).ValuesAsNumpy().tolist()
+
+    date = (
         pd.date_range(
-            start=pd.to_datetime(hourly.Time(), unit="s", utc=True),
-            end=pd.to_datetime(hourly.TimeEnd(), unit="s", utc=True),
+            start=pd.to_datetime(hourly.Time() + utc_offset, unit="s", utc=True),
+            end=pd.to_datetime(hourly.TimeEnd() + utc_offset, unit="s", utc=True),
             freq=pd.Timedelta(seconds=hourly.Interval()),
             inclusive="left",
         )
-        .strftime("%Y-%m-%d")
+        .strftime("%-I %p %d-%m-%Y")
         .tolist()
     )
+
+    latitude: float = response.Latitude()
+    longitude: float = response.Longitude()
+
+    for i in range(len(date)):
+        output.append(
+            HourlyWeather(
+                date=date[i],
+                latitude=latitude,
+                longitude=longitude,
+                apparent_temp=apparent_temp[i],
+                temp=temp[i],
+                precipitation_sum=precipitation[i],
+                wmo_description=weather_code[i],
+                wind_speed=wind_speed_10m[i],
+                relative_humidity=relative_humidity_2m[i],
+            )
+        )
 
     return output

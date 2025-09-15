@@ -44,3 +44,31 @@ LOCATION:
 WEATHER DATA:
 {}
 """
+
+HOURLY_WEATHER_DESCRIPTION: str = """
+You are given a sequence of hourly weather records for a single location. 
+Each record has the following fields:
+
+- date: HH AM/PM DD-MM-YYYY 
+- latitude, longitude: coordinates (ignore this field)
+- wmo_description: short standardized weather label
+- temp: hourly temperature
+- apparent_temp: feels-like temperature
+- relative_humidity: percent
+- precipitation_sum: hourly precipitation
+- wind_speed: wind speed
+
+TASK:
+Produce a human-readable narrative that summarizes the weather over the sequence. 
+Keep it concise and clear for a general audience. 
+Mention trends in temperature, precipitation, and wind. 
+Highlight notable events (storms, heavy rain, unusual heat/cold). 
+Do not repeat raw numbers unless they are important for context. 
+Do not output JSON or structured data—only a natural language summary.
+
+LOCATION:
+{}
+
+WEATHER DATA:
+{}
+"""

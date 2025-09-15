@@ -1,3 +1,5 @@
+from zoneinfo import ZoneInfo
+
 from fastapi import APIRouter, FastAPI, HTTPException
 
 from directions.directions import get_directions, split_directions
@@ -6,17 +8,20 @@ from models.core import Coordinate
 from models.directions import Directions
 from models.weather import (
     CurrentWeather,
-    DailyWeather,
+    DailyWeatherReport,
     DrivingReport,
+    HourlyWeatherReport,
 )
 from weather.cache import WeatherCache
 from weather.weather import (
     generate_weather_report,
     get_current_weather,
     get_daily_weather_report,
+    get_hourly_weather_report,
 )
 
 MAX_DAYS: int = 7
+MAX_HOURS: int = 24
 
 
 class WeatherlyAppWrapper(FastAPI):
@@ -31,6 +36,9 @@ class WeatherlyAppWrapper(FastAPI):
         )
         router.add_api_route("/weather/daily/{address}/{days}", self.get_weather_daily)
         router.add_api_route("/weather/today/{address}", self.get_weather_today)
+        router.add_api_route(
+            "/weather/hourly/{address}/{hours}/{timezone}", self.get_weather_hourly
+        )
         self.include_router(router)
 
     def read_root(self) -> dict[str, str]:
@@ -96,9 +104,7 @@ class WeatherlyAppWrapper(FastAPI):
         """
         return self._get_driving_report(start_address, end_address)
 
-    def get_weather_daily(
-        self, days: int, address: str
-    ) -> dict[str, list[DailyWeather] | str]:
+    def get_weather_daily(self, days: int, address: str) -> DailyWeatherReport:
         if days > MAX_DAYS:
             raise HTTPException(
                 status_code=400, detail=f"Days must be less than or equal to {MAX_DAYS}"
@@ -118,20 +124,47 @@ class WeatherlyAppWrapper(FastAPI):
             days=days,
         )
 
-    def get_weather_today(self, address: str) -> dict[str, list[DailyWeather] | str]:
+    def get_weather_today(self, address: str) -> DailyWeatherReport:
         return self.get_weather_daily(1, address)
 
-    # @app.get("/weather/hourly/{address}/{hours}")
-    # def get_weather_hourly(address: str) -> HourlyWeatherReport:
-    #     """
-    #     Generates a weather report for a single location for the next {hours} hours.
+    def get_weather_hourly(
+        self, address: str, hours: int, timezone: str
+    ) -> HourlyWeatherReport:
+        """
+        Generates a weather report for a single location for the next {hours} hours.
 
-    #     Args:
-    #         address: The address to generate weather data for.
-    #         hours: The number of hours to generate weather data for.
+        Args:
+            address: The address to generate weather data for.
+            hours: The number of hours to generate weather data for.
+            timezone: The timezone to use for the weather data.
 
-    #     Returns:
-    #         HourlyWeatherReport: A HourlyWeatherReport object containing the weather details.
+        Returns:
+            HourlyWeatherReport: A HourlyWeatherReport object containing the weather details.
 
-    #     """
-    #     pass
+        """
+        if hours > MAX_HOURS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Hours must be less than or equal to {MAX_HOURS}",
+            )
+
+        try:
+            tz: ZoneInfo | None = ZoneInfo(timezone.replace("%2f", "/"))
+        except Exception:
+            raise HTTPException(status_code=400, detail=f"Invalid timezone: {timezone}")
+
+        geo: dict | None = get_geo_from_address(address)
+        if geo is None:
+            raise HTTPException(status_code=500, detail="Failed to geocode address")
+
+        lat: float = geo["lat"]
+        lon: float = geo["lon"]
+
+        return get_hourly_weather_report(
+            location=Coordinate(lat, lon),
+            timezone=tz,
+            hours=hours,
+            city=geo["address"]["city"],
+            state=geo["address"]["state"],
+            cache=self.cache,
+        )

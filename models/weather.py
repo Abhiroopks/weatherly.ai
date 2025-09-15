@@ -100,9 +100,16 @@ class HourlyWeather(BaseModel):
     """
 
     date: str
-    location: str
+    latitude: float
+    longitude: float
     temp: float
     apparent_temp: float
-    humidity: float
+    relative_humidity: float
     precipitation_sum: float
     wind_speed: float
+    wmo_description: str
+
+
+class HourlyWeatherReport(BaseModel):
+    data: list[HourlyWeather]
+    description: str

@@ -6,7 +6,7 @@ import redis
 from fastapi.encoders import jsonable_encoder
 
 from models.core import Coordinate
-from models.weather import CurrentWeather, DailyWeather
+from models.weather import CurrentWeather, DailyWeather, HourlyWeather
 
 # Expires after 6 hours
 DAILY_WEATHER_EXPIRATION_TIME: int = 21600
@@ -23,7 +23,10 @@ class WeatherCache(ABC):
 
     @abstractmethod
     def add_weather(
-        self, prefix: str, loc: Coordinate, weather_data: CurrentWeather | DailyWeather
+        self,
+        prefix: str,
+        loc: Coordinate,
+        weather_data: CurrentWeather | DailyWeather | HourlyWeather,
     ) -> None:
         """Add weather data to the cache. Abstract method."""
         pass
@@ -31,7 +34,7 @@ class WeatherCache(ABC):
     @abstractmethod
     def get_weather(
         self, prefix: str, loc: Coordinate
-    ) -> CurrentWeather | DailyWeather | None:
+    ) -> CurrentWeather | DailyWeather | HourlyWeather | None:
         """Get weather data from the cache. Abstract method."""
         pass
 
@@ -57,15 +60,20 @@ class RedisWeatherCache(WeatherCache):
         self.redis_client = redis.Redis(host=host, port=port)
 
     def add_weather(
-        self, prefix: str, loc: Coordinate, weather_data: CurrentWeather | DailyWeather
+        self,
+        prefix: str,
+        loc: Coordinate,
+        weather_data: CurrentWeather | DailyWeather | HourlyWeather,
     ) -> None:
         full_cache_key: str = prefix + "_" + generate_cache_key(loc)
         json_weather_data = json.dumps(jsonable_encoder(weather_data))
         self.redis_client.hset(full_cache_key, "weather_data", json_weather_data)
         expiration_time: int = (
             CURRENT_WEATHER_EXPIRATION_TIME
-            if prefix == "current"
+            if "current" in prefix
             else DAILY_WEATHER_EXPIRATION_TIME
+            if "daily" in prefix
+            else HOURLY_WEATHER_EXPIRATION_TIME
         )
         self.redis_client.expire(full_cache_key, expiration_time)
 
@@ -76,7 +84,7 @@ class RedisWeatherCache(WeatherCache):
 
     def get_weather(
         self, prefix: str, loc: Coordinate
-    ) -> CurrentWeather | DailyWeather | None:
+    ) -> CurrentWeather | DailyWeather | HourlyWeather | None:
         """Get the weather data from the cache."""
         full_cache_key: str = prefix + "_" + generate_cache_key(loc)
         cached_data: str | None = self.redis_client.hget(full_cache_key, "weather_data")  # type: ignore
@@ -84,8 +92,10 @@ class RedisWeatherCache(WeatherCache):
             return None
         return (
             CurrentWeather.model_validate_json(cached_data)
-            if prefix == "current"
+            if "current" in prefix
             else DailyWeather.model_validate_json(cached_data)
+            if "daily" in prefix
+            else HourlyWeather.model_validate_json(cached_data)
         )
 
 
@@ -105,15 +115,17 @@ class LocalCache(WeatherCache):
 
     def get_weather(
         self, prefix: str, loc: Coordinate
-    ) -> CurrentWeather | DailyWeather | None:
+    ) -> CurrentWeather | DailyWeather | HourlyWeather | None:
         full_cache_key: str = prefix + "_" + generate_cache_key(loc)
         cached_data: str | None = self.cache.get(full_cache_key)
         if cached_data is None:
             return None
         return (
             CurrentWeather.model_validate_json(cached_data)
-            if prefix == "current"
+            if "current" in prefix
             else DailyWeather.model_validate_json(cached_data)
+            if "daily" in prefix
+            else HourlyWeather.model_validate_json(cached_data)
         )
 
 
