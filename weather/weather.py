@@ -403,10 +403,10 @@ def generate_weather_report(
     start: dict,
     end: dict,
 ) -> DrivingReport:
-    start_city: str = start["city"]
-    start_state: str = start["state"]
-    end_city: str = end["city"]
-    end_state: str = end["state"]
+    start_city: str = start["address"]["city"]
+    start_state: str = start["address"]["state"]
+    end_city: str = end["address"]["city"]
+    end_state: str = end["address"]["state"]
 
     max_precip: float = max([weather.precipitation for weather in weather_data])
 

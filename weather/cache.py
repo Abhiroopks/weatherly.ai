@@ -44,17 +44,17 @@ class WeatherCache(ABC):
 class RedisWeatherCache(WeatherCache):
     def __init__(
         self,
-        redis_host: str = "localhost",
-        redis_port: int = 6379,
+        host: str = "localhost",
+        port: int = 6379,
     ):  # 1 hour expiration time
         """
         Initialize the WeatherDataCache object with a Redis client and cache expiration time.
 
         Args:
-            redis_host (str): The hostname of the Redis server. Defaults to 'localhost'.
-            redis_port (int): The port number of the Redis server. Defaults to 6379.
+            host (str): The hostname of the Redis server. Defaults to 'localhost'.
+            port (int): The port number of the Redis server. Defaults to 6379.
         """
-        self.redis_client = redis.Redis(host=redis_host, port=redis_port)
+        self.redis_client = redis.Redis(host=host, port=port)
 
     def add_weather(
         self, prefix: str, loc: Coordinate, weather_data: CurrentWeather | DailyWeather
@@ -89,7 +89,7 @@ class RedisWeatherCache(WeatherCache):
         )
 
 
-class TestDataCache(WeatherCache):
+class LocalCache(WeatherCache):
     """A test version of the WeatherDataCache that doesn't require a Redis server"""
 
     def __init__(self) -> None:

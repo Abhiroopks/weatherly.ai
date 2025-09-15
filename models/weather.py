@@ -54,7 +54,7 @@ class CurrentWeather(BaseModel):
 
     apparent_temp: float
     precipitation: float
-    weather_description: str
+    wmo_description: str
     is_day: bool
     wind_gusts: float
     visibility: float

@@ -73,7 +73,7 @@ def split_directions(
     return points
 
 
-def get_directions(start: dict, end: dict) -> Directions:
+def get_directions(start: Coordinate, end: Coordinate) -> Directions:
     """
     Retrieves directions between two geographical coordinates.
 
@@ -88,7 +88,7 @@ def get_directions(start: dict, end: dict) -> Directions:
 
     try:
         directions: dict = CLIENT.directions(  # type: ignore
-            ((start["lon"], start["lat"]), (end["lon"], end["lat"])),
+            ((start.lon, start.lat), (end.lon, end.lat)),
             format="geojson",
             profile="driving-car",
         )
