@@ -7,7 +7,7 @@ services:
       - redis_data:/data
 
   web:
-    image: "ghcr.io/abhiroopks/commute-sense:latest"
+    image: "ghcr.io/abhiroopks/weatherly.ai:latest"
     ports:
       - "8000:8000"
     command: "uvicorn main:app --host 0.0.0.0 --port 8000"

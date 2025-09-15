@@ -1,11 +1,11 @@
 import os
-from typing import Tuple
 
 import openrouteservice
 from fastapi import HTTPException
 from geopy.distance import geodesic
 
-from directions.models import Coordinates, Directions, generate_cache_key
+from models.core import Coordinate
+from models.directions import Directions
 
 """
 This module provides functionality to interact with the OpenRouteService API
@@ -22,55 +22,58 @@ CLIENT: openrouteservice.Client = openrouteservice.Client(
 
 def split_directions(
     directions: Directions, interval: int = 48000, include_end: bool = True
-) -> list[Tuple[str, Coordinates]]:
+) -> list:
     """
-    Splits a given route into multiple geographical points at specified intervals.
+    Split driving directions into a list of coordinates spaced at a given interval.
 
-    This function takes a Directions object and splits the route into multiple
-    Coordinates objects based on the specified distance interval. It interpolates
-    additional points between the original coordinates if the distance between them
-    exceeds the specified interval. The function also allows the option to include
-    the end point in the result.
+    The function takes in a Directions object and returns a list of Coordinate objects.
+    The coordinates are spaced at a given interval (in meters) along the route.
 
-    Args:
-        directions (Directions): The Directions object containing the route's geographical coordinates.
-        interval (int, optional): The distance interval in meters to split the route. Defaults to 48000.
-        include_end (bool, optional): Whether to include the end point in the result. Defaults to True.
+    Parameters
+    ----------
+    directions : Directions
+        A Directions object representing the route.
+    interval : int, optional
+        The interval (in meters) at which to split the route. Defaults to 48000.
+    include_end : bool, optional
+        Whether to include the final coordinate of the route in the output. Defaults to True.
 
-    Returns:
-        list[Tuple[str, Coordinates]]: A list of tuples consisting of cache keys and Coordinates objects
-        representing the points along the route. This should be in order from beginning to end of the driving
-        route.
+    Returns
+    -------
+    list
+        A list of Coordinate objects representing the split route.
     """
-
-    points: list[Tuple[str, Coordinates]] = []
+    points: list = []
     distance: float = 0
-    coordinates = directions.features[0].geometry.coordinates
+    coordinates = directions.features[0].geometry.coordinates  # type: ignore
     num_coords = len(coordinates)
-    starting_point = Coordinates(coordinates[0], reverse=True)
-    points.append((generate_cache_key(starting_point), starting_point))
+
+    starting_point = Coordinate(lat=coordinates[0][1], lon=coordinates[0][0])
+
+    points.append(starting_point)
 
     for index in range(1, num_coords):
-        prev_point = Coordinates(coordinates[index - 1], reverse=True)
-        current_point = Coordinates(coordinates[index], reverse=True)
+        prev_point = Coordinate(
+            lat=coordinates[index - 1][1], lon=coordinates[index - 1][0]
+        )
+        current_point = Coordinate(lat=coordinates[index][1], lon=coordinates[index][0])
 
         distance += geodesic(
             (prev_point.lat, prev_point.lon), (current_point.lat, current_point.lon)
         ).meters
 
         if distance >= interval:
-            points.append((generate_cache_key(current_point), current_point))
+            points.append(current_point)
             distance = 0
 
     if include_end:
-        end_point = Coordinates(coordinates[-1], reverse=True)
-        points.append((generate_cache_key(end_point), end_point))
+        end_point = Coordinate(lat=coordinates[-1][1], lon=coordinates[-1][0])
+        points.append(end_point)
 
-    print(f"Generated {len(points)} points from directions")
     return points
 
 
-def get_directions(start: Coordinates, end: Coordinates) -> Directions:
+def get_directions(start: Coordinate, end: Coordinate) -> Directions:
     """
     Retrieves directions between two geographical coordinates.
 
@@ -84,7 +87,7 @@ def get_directions(start: Coordinates, end: Coordinates) -> Directions:
     """
 
     try:
-        directions: dict = CLIENT.directions(
+        directions: dict = CLIENT.directions(  # type: ignore
             ((start.lon, start.lat), (end.lon, end.lat)),
             format="geojson",
             profile="driving-car",

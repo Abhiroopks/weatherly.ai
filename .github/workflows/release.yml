@@ -22,8 +22,8 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Build Docker image
-        run: docker build -t ghcr.io/abhiroopks/commute-sense:latest .
+        run: docker build -t ghcr.io/abhiroopks/weatherly.ai:latest .
 
       - name: Push Docker image
-        run: docker push ghcr.io/abhiroopks/commute-sense:latest
+        run: docker push ghcr.io/abhiroopks/weatherly.ai:latest
       

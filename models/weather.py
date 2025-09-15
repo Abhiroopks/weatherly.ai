@@ -1,4 +1,5 @@
-from openmeteo_sdk.WeatherApiResponse import WeatherApiResponse
+from typing import Literal
+
 from pydantic import BaseModel
 
 # Mapping of WMO weather codes to weather descriptions.
@@ -43,45 +44,72 @@ WEATHER_COMFORT_WEIGHTS: dict[str, float] = {
 }
 
 # Ideal temperature in celsius (this is rather subjective).
-IDEAL_TEMP_RANGE = (20, 25)
+IDEAL_TEMP_RANGE: tuple[Literal[20], Literal[25]] = (20, 25)
 
 
-class Weather(BaseModel):
+class CurrentWeather(BaseModel):
     """
-    A class representing weather data.
+    A class representing current weather data for a single location.
     """
 
-    def __init__(self, weather: WeatherApiResponse = None, **kwargs: dict) -> None:  # type: ignore
-        if weather is None:
-            super().__init__(**kwargs)
-            return
-
-        current = weather.Current()
-
-        super().__init__(
-            geo_key=kwargs["geo_key"],
-            apparent_temp=current.Variables(0).Value(),
-            precipitation=current.Variables(1).Value(),
-            weather_description=WMO_WEATHER_CODES[current.Variables(2).Value()],
-            is_day=current.Variables(3).Value(),
-            wind_gusts=current.Variables(4).Value(),
-            visibility=current.Variables(5).Value(),
-        )
-
-    geo_key: str
     apparent_temp: float
     precipitation: float
-    weather_description: str
+    wmo_description: str
     is_day: bool
     wind_gusts: float
     visibility: float
 
 
-class WeatherReport(BaseModel):
+class DrivingReport(BaseModel):
     max_precip: float
     mean_temp: float
     max_gust: float
     min_visibility: float
     is_day: bool
     comfort_score: int
+    description: str
+
+
+class DailyWeather(BaseModel):
+    """
+    Weather data for a single day, for a single location.
+    """
+
+    date: str
+    latitude: float
+    longitude: float
+    wmo_description: str
+    max_temp: float
+    min_temp: float
+    max_apparent_temp: float
+    min_apparent_temp: float
+    sunrise: str
+    sunset: str
+    precipitation_sum: float
+    max_wind_speed: float
+
+
+class DailyWeatherReport(BaseModel):
+    data: list[DailyWeather]
+    description: str
+
+
+class HourlyWeather(BaseModel):
+    """
+    Weather data for a number of consecutive hours, for a single location.
+    """
+
+    date: str
+    latitude: float
+    longitude: float
+    temp: float
+    apparent_temp: float
+    relative_humidity: float
+    precipitation_sum: float
+    wind_speed: float
+    wmo_description: str
+
+
+class HourlyWeatherReport(BaseModel):
+    data: list[HourlyWeather]
     description: str
