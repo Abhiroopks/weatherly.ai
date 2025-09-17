@@ -1,5 +1,3 @@
-from typing import Literal
-
 from pydantic import BaseModel
 
 # Mapping of WMO weather codes to weather descriptions.
@@ -33,18 +31,6 @@ WMO_WEATHER_CODES: dict[int, str] = {
     96: "Thunderstorm with slight hail",
     99: "Thunderstorm with heavy hail",
 }
-
-# Weights for calculating the comfort score.
-WEATHER_COMFORT_WEIGHTS: dict[str, float] = {
-    "precipitation": 0.25,
-    "apparent_temperature": 0.2,
-    "wind": 0.1,
-    "visibility": 0.3,
-    "day_night": 0.15,
-}
-
-# Ideal temperature in celsius (this is rather subjective).
-IDEAL_TEMP_RANGE: tuple[Literal[20], Literal[25]] = (20, 25)
 
 
 class DailyWeather(BaseModel):

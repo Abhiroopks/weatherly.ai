@@ -14,8 +14,6 @@ from ai.prompts import (
 )
 from models.core import Coordinate
 from models.weather import (
-    IDEAL_TEMP_RANGE,
-    WEATHER_COMFORT_WEIGHTS,
     WMO_WEATHER_CODES,
     DailyWeather,
     DailyWeatherReport,
@@ -41,154 +39,30 @@ OPENMETEO = openmeteo_requests.Client(session=RETRY_SESSION)  # type: ignore
 WEATHER_URL = "https://api.open-meteo.com/v1/forecast"
 
 
-def precipitation_score(max_precip: float) -> float:
-    """
-    Calculate a precipitation score based on the maximum precipitation rate.
-
-    The score is determined by assessing the severity of precipitation.
-    A higher score indicates more favorable precipitation conditions with less intense precipitation.
-
-    Args:
-        max_precip (float): The maximum precipitation rate recorded.
-
-    Returns:
-        float: A score representing the precipitation condition, where 100 indicates low precipitation,
-        50 indicates moderate precipitation, and 0 indicates high precipitation.
-    """
-    # If no precipitation at all.
-    if max_precip == 0:
-        return 100
-
-    # If precipitation is light (less than 3 mm/hr).
-    elif max_precip * 4 < 3:
-        return 50
-
-    # If precipitation is moderate or heavy (greater than 3 mm/hr).
-    else:
-        return 0
-
-
-def temperature_score(mean_temp: float) -> float:
-    """
-    Calculate a temperature score based on weather data.
-
-    The score is determined by the average temperature value among the data points.
-    A higher score indicates more favorable weather conditions with temperatures closer to the ideal range.
-
-    Args:
-        mean_temp (float): The average temperature value among the data points.
-
-    Returns:
-        float: A score representing the temperature level, where 100 indicates ideal temperatures,
-        50 indicates temperatures that are not ideal but still acceptable, and 0 indicates unacceptable temperatures.
-    """
-
-    # If the average temperature is within the ideal range.
-    if mean_temp > IDEAL_TEMP_RANGE[0] and mean_temp < IDEAL_TEMP_RANGE[1]:
-        return 100
-
-    # Below ideal range but above 5C.
-    elif mean_temp < IDEAL_TEMP_RANGE[0] and mean_temp > 5:
-        return 50
-
-    # Above ideal range but below 28C.
-    elif mean_temp > IDEAL_TEMP_RANGE[1] and mean_temp < 28:
-        return 50
-
-    # Too hot or too cold.
-    else:
-        return 0
-
-
-def wind_score(max_gust: float) -> float:
-    """
-    Calculate a wind score based on the maximum wind gust.
-
-    The score is determined by assessing the severity of wind gusts.
-    A higher score indicates more favorable wind conditions with less intense gusts.
-
-    Args:
-        max_gust (float): The maximum wind gust value recorded in km/h.
-
-    Returns:
-        float: A score representing the wind condition, where 100 indicates low wind gusts,
-        50 indicates moderate wind gusts, and 0 indicates high wind gusts.
-    """
-
-    if max_gust < 10:
-        return 100
-    elif max_gust < 20:
-        return 50
-    else:
-        return 0
-
-
-def visibility_score(min_visibility: float) -> float:
-    """
-    Calculate a visibility score based on the minimum visibility of weather data.
-
-    The score is determined by comparing the minimum visibility to a threshold.
-    A higher score indicates more favorable visibility conditions.
-
-    Args:
-        min_visibility (float): The minimum visibility value in meters.
-
-    Returns:
-        float: A score representing the visibility level, where 100 indicates ideal visibility,
-        80 indicates acceptable visibility, 50 indicates moderate visibility, 20 indicates low visibility,
-        and 0 indicates very low visibility.
-    """
-    if min_visibility > 5000:
-        return 100
-    elif min_visibility > 3000:
-        return 80
-    elif min_visibility > 1000:
-        return 50
-    elif min_visibility > 500:
-        return 20
-    else:
-        return 0
-
-
-def calculate_comfort_score(
-    max_precip: float,
-    mean_temp: float,
-    max_gust: float,
-    min_visibility: float,
-) -> int:
-    """
-    Calculate a comfort score based on various weather parameters.
-
-    The comfort score is computed using weighted contributions from precipitation,
-    temperature, wind, visibility, and day/night conditions. Each parameter is
-    scored individually, and the overall comfort score is a weighted sum of these
-    individual scores.
-
-    Args:
-        max_precip (float): Maximum precipitation value over a specified time span.
-        mean_temp (float): Average temperature value.
-        max_gust (float): Maximum wind gust value.
-        min_visibility (float): Minimum visibility value.
-
-    Returns:
-        int: A rounded integer representing the overall comfort score, where a
-        higher score indicates more comfortable weather conditions.
-    """
-
-    comfort_score = (
-        precipitation_score(max_precip) * WEATHER_COMFORT_WEIGHTS["precipitation"]
-        + temperature_score(mean_temp) * WEATHER_COMFORT_WEIGHTS["apparent_temperature"]
-        + wind_score(max_gust) * WEATHER_COMFORT_WEIGHTS["wind"]
-        + visibility_score(min_visibility) * WEATHER_COMFORT_WEIGHTS["visibility"]
-    )
-
-    return round(comfort_score)
-
-
 def generate_llm_hourly_description(
     weather_data: list[HourlyWeather], location: str
 ) -> str | None:
-    content: str = HOURLY_WEATHER_DESCRIPTION.format(location, weather_data)
+    """
+    Generate a human-readable description of the weather conditions for the hour using a
+    language model.
+
+    The description is generated by passing the weather data to a language model. The
+    language model is expected to generate a human-readable description of the weather
+    conditions for the hour.
+
+
+    Args:
+        weather_data (list[HourlyWeather]): A list of hourly weather data objects.
+        location (str): The location for which the weather data is generated.
+
+    Returns:
+        str | None: A human-readable description of the weather conditions for the hour,
+        or None if the language model fails to generate a description.
+    """
+    content: str = HOURLY_WEATHER_DESCRIPTION.format(
+        location,
+        weather_data,
+    )
 
     return chat(prompt=content)
 
@@ -215,7 +89,10 @@ def generate_llm_daily_description(
         description could not be generated.
     """
 
-    content: str = DAILY_WEATHER_DESCRIPTION.format(location, weather_data)
+    content: str = DAILY_WEATHER_DESCRIPTION.format(
+        location,
+        weather_data,
+    )
 
     return chat(prompt=content)
 
@@ -227,6 +104,19 @@ def get_daily_weather_report(
     loc: Coordinate,
     days: int = 1,
 ) -> DailyWeatherReport:
+    """
+    Generates a daily weather report for the given location for the next {days} days.
+
+    Args:
+        cache (WeatherCache): The cache to store the weather data in.
+        city (str): The city corresponding to the location.
+        state (str): The state corresponding to the location.
+        loc (Coordinate): The location to generate the weather report for.
+        days (int): The number of days to generate the weather report for. Defaults to 1.
+
+    Returns:
+        DailyWeatherReport: An object containing the weather details for the given location for the next {days} days.
+    """
     prefix: str = "daily"
 
     weather_days: list[DailyWeather] = []
@@ -298,6 +188,19 @@ def get_hourly_weather_report(
     state: str,
     cache: WeatherCache,
 ) -> HourlyWeatherReport:
+    """
+    Generates a hourly weather report for the given location for the next {hours} hours.
+
+    Args:
+        location (Coordinate): The location to generate the weather report for.
+        hours (int): The number of hours to generate the weather report for.
+        city (str): The city corresponding to the location.
+        state (str): The state corresponding to the location.
+        cache (WeatherCache): The cache to store the weather data in.
+
+    Returns:
+        HourlyWeatherReport: An object containing the weather details for the given location for the next {hours} hours.
+    """
     prefix: str = "hourly"
     weather_hours: list[HourlyWeather] = []
 

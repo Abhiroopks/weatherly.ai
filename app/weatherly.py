@@ -37,6 +37,7 @@ class WeatherlyAppWrapper(FastAPI):
         router.add_api_route(
             "/weather/hourly/{address}/{hours}", self.get_weather_hourly
         )
+        router.add_api_route("/weather/current/{address}", self.get_current_weather)
         self.include_router(router)
 
     def read_root(self) -> dict[str, str]:
@@ -46,6 +47,36 @@ class WeatherlyAppWrapper(FastAPI):
         Returns a JSON object with a single key-value pair: {"Hello": "World"}.
         """
         return {"Hello": "World"}
+
+    def get_current_weather(
+        self,
+        address: str = Path(
+            ..., description="Address to generate current weather data for"
+        ),
+    ) -> HourlyWeatherReport:
+        """
+        Generates the current weather data for the given address.
+
+        Args:
+            address (str): The address to generate the current weather data for.
+
+        Returns:
+            HourlyWeatherReport: An object containing the current weather details for the given address.
+        """
+        geo: dict | None = get_geo_from_address(address)
+        if geo is None:
+            raise HTTPException(status_code=500, detail="Failed to geocode address")
+
+        lat: float = geo["lat"]
+        lon: float = geo["lon"]
+        loc: Coordinate = Coordinate(lat, lon)
+        return get_hourly_weather_report(
+            cache=self.cache,
+            city=geo["address"]["city"],
+            state=geo["address"]["state"],
+            location=loc,
+            hours=1,
+        )
 
     def get_weather_daily(
         self,
