@@ -47,29 +47,6 @@ WEATHER_COMFORT_WEIGHTS: dict[str, float] = {
 IDEAL_TEMP_RANGE: tuple[Literal[20], Literal[25]] = (20, 25)
 
 
-class CurrentWeather(BaseModel):
-    """
-    A class representing current weather data for a single location.
-    """
-
-    apparent_temp: float
-    precipitation: float
-    wmo_description: str
-    is_day: bool
-    wind_gusts: float
-    visibility: float
-
-
-class DrivingReport(BaseModel):
-    max_precip: float
-    mean_temp: float
-    max_gust: float
-    min_visibility: float
-    is_day: bool
-    comfort_score: int
-    description: str
-
-
 class DailyWeather(BaseModel):
     """
     Weather data for a single day, for a single location.
@@ -79,14 +56,14 @@ class DailyWeather(BaseModel):
     latitude: float
     longitude: float
     wmo_description: str
-    max_temp: float
-    min_temp: float
-    max_apparent_temp: float
-    min_apparent_temp: float
+    max_temp_c: float
+    min_temp_c: float
+    max_apparent_temp_c: float
+    min_apparent_temp_c: float
     sunrise: str
     sunset: str
-    precipitation_sum: float
-    max_wind_speed: float
+    precipitation_sum_mm: float
+    max_wind_speed_kmh: float
 
 
 class DailyWeatherReport(BaseModel):
@@ -102,11 +79,11 @@ class HourlyWeather(BaseModel):
     date: str
     latitude: float
     longitude: float
-    temp: float
-    apparent_temp: float
-    relative_humidity: float
-    precipitation_sum: float
-    wind_speed: float
+    temp_c: float
+    apparent_temp_c: float
+    relative_humidity_pct: float
+    precipitation_sum_mm: float
+    wind_speed_kmh: float
     wmo_description: str
 
 
